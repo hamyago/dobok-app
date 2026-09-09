@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../features/auth/login_page.dart';
@@ -8,12 +9,18 @@ import '../features/club/club_page.dart';
 import 'providers/auth_provider.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final auth = ref.watch(authProvider);
+  final notifier = RouterNotifier(ref);
+
   return GoRouter(
     initialLocation: '/login',
+    refreshListenable: notifier,
     redirect: (context, state) {
-      final isLoggedIn = auth.value != null;
+      final authState = ref.read(authProvider);
+      final isLoading = authState.isLoading;
+      final isLoggedIn = authState.valueOrNull != null;
       final isLoginPage = state.matchedLocation == '/login';
+
+      if (isLoading) return null;
       if (!isLoggedIn && !isLoginPage) return '/login';
       if (isLoggedIn && isLoginPage) return '/dashboard';
       return null;
@@ -27,3 +34,11 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+class RouterNotifier extends ChangeNotifier {
+  final Ref _ref;
+
+  RouterNotifier(this._ref) {
+    _ref.listen(authProvider, (_, __) => notifyListeners());
+  }
+}
