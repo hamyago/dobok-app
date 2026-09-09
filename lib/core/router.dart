@@ -10,17 +10,14 @@ import 'providers/auth_provider.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final notifier = RouterNotifier(ref);
-
   return GoRouter(
     initialLocation: '/login',
     refreshListenable: notifier,
     redirect: (context, state) {
       final authState = ref.read(authProvider);
-      final isLoading = authState.isLoading;
+      if (authState.isLoading) return null;
       final isLoggedIn = authState.valueOrNull != null;
       final isLoginPage = state.matchedLocation == '/login';
-
-      if (isLoading) return null;
       if (!isLoggedIn && !isLoginPage) return '/login';
       if (isLoggedIn && isLoginPage) return '/dashboard';
       return null;
@@ -37,7 +34,6 @@ final routerProvider = Provider<GoRouter>((ref) {
 
 class RouterNotifier extends ChangeNotifier {
   final Ref _ref;
-
   RouterNotifier(this._ref) {
     _ref.listen(authProvider, (_, __) => notifyListeners());
   }

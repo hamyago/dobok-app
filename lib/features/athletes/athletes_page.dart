@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/api/api_client.dart';
+import '../../core/models/athlete_model.dart';
+import '../../core/providers/athletes_provider.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../core/theme/app_theme.dart';
-
-final athletesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
-  final response = await ApiClient().dio.get('/athletes');
-  final data = response.data as List;
-  return data.cast<Map<String, dynamic>>();
-});
+import 'athlete_form_page.dart';
+import 'athlete_detail_page.dart';
 
 class AthletesPage extends ConsumerWidget {
   const AthletesPage({super.key});
@@ -15,10 +13,26 @@ class AthletesPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(athletesProvider);
+    final user = ref.watch(authProvider).valueOrNull;
+    final clubId = user?.clubId;
 
     return Scaffold(
       backgroundColor: AppTheme.background,
-      appBar: AppBar(title: const Text('Athlètes')),
+      appBar: AppBar(
+        title: const Text('Athlètes'),
+        leading: const BackButton(),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          await Navigator.push(context, MaterialPageRoute(
+            builder: (_) => const AthleteFormPage(),
+          ));
+          ref.invalidate(athletesProvider);
+        },
+        backgroundColor: AppTheme.primary,
+        icon: const Icon(Icons.person_add, color: Colors.white),
+        label: const Text('Ajouter', style: TextStyle(color: Colors.white)),
+      ),
       body: state.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
@@ -30,66 +44,88 @@ class AthletesPage extends ConsumerWidget {
               const Text('Impossible de charger les athlètes'),
               const SizedBox(height: 8),
               TextButton(
-                onPressed: () => ref.refresh(athletesProvider),
+                onPressed: () => ref.invalidate(athletesProvider),
                 child: const Text('Réessayer'),
               ),
             ],
           ),
         ),
-        data: (athletes) => athletes.isEmpty
-            ? const Center(child: Text('Aucun athlète enregistré'))
-            : ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: athletes.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (context, i) {
-                  final a = athletes[i];
-                  final nom = '${a['nom'] ?? ''} ${a['prenom'] ?? ''}'.trim();
-                  final ceinture = a['ceinture'] ?? '';
-                  final tel = a['telephone'] ?? '';
-                  return Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          backgroundColor: AppTheme.primary.withValues(alpha: 0.1),
-                          child: Text(
-                            nom.isNotEmpty ? nom[0].toUpperCase() : '?',
-                            style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(nom, style: const TextStyle(fontWeight: FontWeight.w600)),
-                              if (tel.isNotEmpty)
-                                Text(tel, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                            ],
-                          ),
-                        ),
-                        if (ceinture.isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primary.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              ceinture,
-                              style: const TextStyle(fontSize: 11, color: AppTheme.primary),
-                            ),
-                          ),
-                      ],
-                    ),
-                  );
-                },
+        data: (athletes) {
+          // Filtre par club
+          final mine = clubId != null
+              ? athletes.where((a) => a.clubId == clubId).toList()
+              : athletes;
+          if (mine.isEmpty) {
+            return const Center(child: Text('Aucun athlète enregistré'));
+          }
+          return ListView.separated(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+            itemCount: mine.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemBuilder: (context, i) => _AthleteCard(
+              athlete: mine[i],
+              onTap: () async {
+                await Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => AthleteDetailPage(athlete: mine[i]),
+                ));
+                ref.invalidate(athletesProvider);
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _AthleteCard extends StatelessWidget {
+  final AthleteModel athlete;
+  final VoidCallback onTap;
+  const _AthleteCard({required this.athlete, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: AppTheme.primary.withValues(alpha: 0.1),
+              child: Text(athlete.initiale,
+                style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(athlete.fullName,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                  if (athlete.telephone != null)
+                    Text(athlete.telephone!,
+                      style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                ],
               ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTheme.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(athlete.ceinture,
+                style: const TextStyle(fontSize: 11, color: AppTheme.primary)),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, color: Colors.grey),
+          ],
+        ),
       ),
     );
   }
