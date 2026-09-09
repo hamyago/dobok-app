@@ -27,7 +27,7 @@ class DashboardPage extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: Text('Do-Bok — ${user?.clubNom ?? ""}'),
+        title: Text('Do-Bok — ${user?.clubNom ?? ""}', overflow: TextOverflow.ellipsis),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -49,7 +49,6 @@ class DashboardPage extends ConsumerWidget {
             Text(isPresident ? 'Président du club' : 'Maître de salle',
               style: const TextStyle(color: Colors.grey)),
             const SizedBox(height: 16),
-            // Carte statistique athlètes
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
@@ -61,28 +60,22 @@ class DashboardPage extends ConsumerWidget {
                 ),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.people, color: Colors.white, size: 32),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Athlètes du club',
-                        style: TextStyle(color: Colors.white70, fontSize: 13)),
-                      countAsync.when(
-                        data: (n) => Text('$n athlète${n > 1 ? "s" : ""}',
-                          style: const TextStyle(
-                            color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-                        loading: () => const Text('—',
-                          style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-                        error: (_, __) => const Text('—',
-                          style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-                      ),
-                    ],
+              child: Row(children: [
+                const Icon(Icons.people, color: Colors.white, size: 32),
+                const SizedBox(width: 16),
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Athlètes du club',
+                    style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  countAsync.when(
+                    data: (n) => Text('$n athlète${n > 1 ? "s" : ""}',
+                      style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                    loading: () => const Text('—',
+                      style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                    error: (_, __) => const Text('—',
+                      style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
                   ),
-                ],
-              ),
+                ]),
+              ]),
             ),
             const SizedBox(height: 20),
             Expanded(
@@ -95,7 +88,7 @@ class DashboardPage extends ConsumerWidget {
                   label: card['label'] as String,
                   color: card['color'] as Color,
                   onTap: card['route'] != null
-                      ? () => context.go(card['route'] as String)
+                      ? () => context.push(card['route'] as String)
                       : () {},
                 )).toList(),
               ),
@@ -112,9 +105,7 @@ class _MenuCard extends StatelessWidget {
   final String label;
   final Color color;
   final VoidCallback onTap;
-
-  const _MenuCard({required this.icon, required this.label,
-    required this.color, required this.onTap});
+  const _MenuCard({required this.icon, required this.label, required this.color, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -131,8 +122,7 @@ class _MenuCard extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
               child: Icon(icon, color: color, size: 32),
             ),
             const SizedBox(height: 12),
