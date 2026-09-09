@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/theme/app_theme.dart';
 
@@ -16,7 +15,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _passController = TextEditingController();
   String _role = 'president';
   bool _obscure = true;
-  bool _loading = false;
 
   @override
   void dispose() {
@@ -26,31 +24,47 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Future<void> _login() async {
-    if (_telController.text.isEmpty || _passController.text.isEmpty) return;
-    setState(() => _loading = true);
-    try {
-      await ref.read(authProvider.notifier).login(
-        _telController.text.trim(),
-        _passController.text,
-        _role,
+    if (_telController.text.isEmpty || _passController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Veuillez remplir tous les champs'),
+          backgroundColor: AppTheme.error,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
-      if (mounted) context.go('/dashboard');
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Identifiants incorrects'),
-            backgroundColor: AppTheme.error,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+      return;
     }
-    if (mounted) setState(() => _loading = false);
+    // Le router gère la redirection via refreshListenable
+    await ref.read(authProvider.notifier).login(
+      _telController.text.trim(),
+      _passController.text,
+      _role,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+    final isLoading = authState.isLoading;
+
+    // Affiche l'erreur API si présente
+    ref.listen(authProvider, (_, next) {
+      next.whenOrNull(
+        error: (e, _) {
+          final msg = e.toString().contains('401') || e.toString().contains('422')
+              ? 'Numéro ou mot de passe incorrect'
+              : 'Erreur de connexion. Vérifiez votre réseau.';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(msg),
+              backgroundColor: AppTheme.error,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        },
+      );
+    });
+
     return Scaffold(
       backgroundColor: AppTheme.primary,
       body: SafeArea(
@@ -98,7 +112,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         fontSize: 14,
                       )),
                       const SizedBox(height: 24),
-                      // Role selector
                       Container(
                         decoration: BoxDecoration(
                           color: Colors.grey.shade100,
@@ -136,10 +149,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                       const SizedBox(height: 28),
                       ElevatedButton(
-                        onPressed: _loading ? null : _login,
-                        child: _loading
-                            ? const SizedBox(height: 20, width: 20,
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        onPressed: isLoading ? null : _login,
+                        child: isLoading
+                            ? const SizedBox(
+                                height: 20, width: 20,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              )
                             : const Text('Se connecter'),
                       ),
                     ],

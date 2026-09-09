@@ -9,7 +9,38 @@ class DashboardPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(authProvider).value;
+    final user = ref.watch(authProvider).valueOrNull;
+    final isPresident = user?.role == 'president';
+
+    final cards = <Map<String, dynamic>>[
+      {
+        'icon': Icons.people,
+        'label': 'Athlètes',
+        'color': AppTheme.primary,
+        'route': '/athletes',
+      },
+      if (isPresident) ...[
+        {
+          'icon': Icons.sports_martial_arts,
+          'label': 'Candidatures',
+          'color': AppTheme.secondary,
+          'route': '/candidatures',
+        },
+        {
+          'icon': Icons.business,
+          'label': 'Mon Club',
+          'color': Colors.blue,
+          'route': '/club',
+        },
+      ],
+      {
+        'icon': Icons.notifications,
+        'label': 'Notifications',
+        'color': Colors.purple,
+        'route': null,
+      },
+    ];
+
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
@@ -29,27 +60,32 @@ class DashboardPage extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Bonjour, ${user?.nom ?? ""}',
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            Text(
+              'Bonjour, ${user?.nom ?? ""}',
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 4),
-            Text(user?.role == 'president' ? 'Président du club' : 'Maître de salle',
-              style: const TextStyle(color: Colors.grey)),
+            Text(
+              isPresident ? 'Président du club' : 'Maître de salle',
+              style: const TextStyle(color: Colors.grey),
+            ),
             const SizedBox(height: 24),
-            GridView.count(
-              shrinkWrap: true,
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              children: [
-                _MenuCard(icon: Icons.people, label: 'Athlètes', color: AppTheme.primary,
-                  onTap: () => context.go('/athletes')),
-                _MenuCard(icon: Icons.sports_martial_arts, label: 'Candidatures', color: AppTheme.secondary,
-                  onTap: () => context.go('/candidatures')),
-                _MenuCard(icon: Icons.business, label: 'Mon Club', color: Colors.blue,
-                  onTap: () => context.go('/club')),
-                _MenuCard(icon: Icons.notifications, label: 'Notifications', color: Colors.purple,
-                  onTap: () {}),
-              ],
+            Expanded(
+              child: GridView.count(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                children: cards.map((card) {
+                  return _MenuCard(
+                    icon: card['icon'] as IconData,
+                    label: card['label'] as String,
+                    color: card['color'] as Color,
+                    onTap: card['route'] != null
+                        ? () => context.go(card['route'] as String)
+                        : () {},
+                  );
+                }).toList(),
+              ),
             ),
           ],
         ),
@@ -64,7 +100,12 @@ class _MenuCard extends StatelessWidget {
   final Color color;
   final VoidCallback onTap;
 
-  const _MenuCard({required this.icon, required this.label, required this.color, required this.onTap});
+  const _MenuCard({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -74,14 +115,19 @@ class _MenuCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)],
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8),
+          ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
               child: Icon(icon, color: color, size: 32),
             ),
             const SizedBox(height: 12),
