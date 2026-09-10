@@ -4,7 +4,6 @@ import '../../core/api/api_client.dart';
 import '../../core/models/athlete_model.dart';
 import '../../core/theme/app_theme.dart';
 
-// Provider sessions ouvertes
 final sessionsOuvertesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final response = await ApiClient().dio.get('/sessions-ouvertes');
   final data = response.data as List;
@@ -52,9 +51,10 @@ class _SoumettreExamenPageState extends ConsumerState<SoumettreExamenPage> {
     }
     setState(() => _loading = true);
     try {
+      // API attend athlete_ids (tableau) et non athlete_id
       await ApiClient().dio.post('/candidatures', data: {
         'session_id': _sessionSelectionnee!['id'],
-        'athlete_id': widget.athlete.id,
+        'athlete_ids': [widget.athlete.id],
         'ceinture_visee': _ceinture,
       });
       if (mounted) {
@@ -67,9 +67,11 @@ class _SoumettreExamenPageState extends ConsumerState<SoumettreExamenPage> {
       }
     } catch (e) {
       if (mounted) {
-        final msg = e.toString().contains('422')
-            ? 'Athlète déjà inscrit à cette session'
-            : 'Erreur lors de la soumission';
+        String msg = 'Erreur lors de la soumission';
+        final err = e.toString();
+        if (err.contains('422')) msg = 'Athlète déjà inscrit à cette session';
+        if (err.contains('club')) msg = 'Club non affilié ou cotisation non à jour';
+        if (err.contains('session')) msg = 'Session fermée aux inscriptions';
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(msg),
           backgroundColor: AppTheme.error,
@@ -117,14 +119,14 @@ class _SoumettreExamenPageState extends ConsumerState<SoumettreExamenPage> {
           ),
           const SizedBox(height: 16),
 
-          // Sélection session
+          // Sessions disponibles
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Session d\'examen disponible',
+                const Text('Session d\'examen',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 12),
                 sessionsState.when(
@@ -203,7 +205,7 @@ class _SoumettreExamenPageState extends ConsumerState<SoumettreExamenPage> {
                                       overflow: TextOverflow.ellipsis)),
                                   ]),
                                   const SizedBox(height: 2),
-                                  Text('Limite : $limite',
+                                  Text('Limite inscription : $limite',
                                     style: const TextStyle(fontSize: 11, color: Colors.orange)),
                                 ],
                               )),
