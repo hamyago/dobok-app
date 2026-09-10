@@ -21,79 +21,104 @@ class DashboardPage extends ConsumerWidget {
         {'icon': Icons.sports_martial_arts, 'label': 'Candidatures', 'color': AppTheme.secondary, 'route': '/candidatures'},
         {'icon': Icons.business, 'label': 'Mon Club', 'color': Colors.blue, 'route': '/club'},
       ],
+      {'icon': Icons.person, 'label': 'Mon Profil', 'color': Colors.teal, 'route': '/profile'},
       {'icon': Icons.notifications, 'label': 'Notifications', 'color': Colors.purple, 'route': null},
     ];
 
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        title: Text('Do-Bok — ${user?.clubNom ?? ""}', overflow: TextOverflow.ellipsis),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await ref.read(authProvider.notifier).logout();
-              if (context.mounted) context.go('/login');
-            },
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Bonjour, ${user?.nom ?? ""}',
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text(isPresident ? 'Président du club' : 'Maître de salle',
-              style: const TextStyle(color: Colors.grey)),
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppTheme.primary, Color(0xFF2EA55A)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(children: [
-                const Icon(Icons.people, color: Colors.white, size: 32),
-                const SizedBox(width: 16),
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Athlètes du club',
-                    style: TextStyle(color: Colors.white70, fontSize: 13)),
-                  countAsync.when(
-                    data: (n) => Text('$n athlète${n > 1 ? "s" : ""}',
-                      style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-                    loading: () => const Text('—',
-                      style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-                    error: (_, __) => const Text('—',
-                      style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-                  ),
-                ]),
-              ]),
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        backgroundColor: AppTheme.background,
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          title: Row(children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.asset('assets/images/logo.png', width: 32, height: 32, fit: BoxFit.cover),
             ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                children: cards.map((card) => _MenuCard(
-                  icon: card['icon'] as IconData,
-                  label: card['label'] as String,
-                  color: card['color'] as Color,
-                  onTap: card['route'] != null
-                      ? () => context.push(card['route'] as String)
-                      : () {},
-                )).toList(),
-              ),
+            const SizedBox(width: 8),
+            const Text('Do-Bok CI', style: TextStyle(fontWeight: FontWeight.bold)),
+          ]),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.logout),
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Déconnexion'),
+                    content: const Text('Voulez-vous vraiment vous déconnecter ?'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+                      ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Déconnecter')),
+                    ],
+                  ),
+                );
+                if (confirm == true && context.mounted) {
+                  await ref.read(authProvider.notifier).logout();
+                  if (context.mounted) context.go('/login');
+                }
+              },
             ),
           ],
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Bonjour, ${user?.nom ?? ""}',
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text(isPresident ? 'Président du club' : 'Maître de salle',
+                style: const TextStyle(color: Colors.grey)),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppTheme.primary, Color(0xFF2EA55A)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.people, color: Colors.white, size: 32),
+                  const SizedBox(width: 16),
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('Athlètes du club',
+                      style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    countAsync.when(
+                      data: (n) => Text('$n athlète${n > 1 ? "s" : ""}',
+                        style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                      loading: () => const Text('—',
+                        style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                      error: (_, __) => const Text('—',
+                        style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                    ),
+                  ]),
+                ]),
+              ),
+              const SizedBox(height: 20),
+              Expanded(
+                child: GridView.count(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  children: cards.map((card) => _MenuCard(
+                    icon: card['icon'] as IconData,
+                    label: card['label'] as String,
+                    color: card['color'] as Color,
+                    onTap: card['route'] != null
+                        ? () => context.push(card['route'] as String)
+                        : () {},
+                  )).toList(),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
