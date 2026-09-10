@@ -22,6 +22,7 @@ class DashboardPage extends ConsumerWidget {
       if (isPresident) ...[
         {'icon': Icons.sports_martial_arts, 'label': 'Candidatures', 'color': AppTheme.secondary, 'route': '/candidatures'},
         {'icon': Icons.business, 'label': 'Mon Club', 'color': Colors.blue, 'route': '/club'},
+        {'icon': Icons.receipt_long, 'label': 'Paiements', 'color': Colors.orange, 'route': '/paiements'},
       ],
       {'icon': Icons.person, 'label': 'Mon Profil', 'color': Colors.teal, 'route': '/profile'},
       {'icon': Icons.notifications, 'label': 'Notifications', 'color': Colors.purple, 'route': '/notifications'},
@@ -44,19 +45,13 @@ class DashboardPage extends ConsumerWidget {
           actions: [
             nonLuesAsync.when(
               data: (count) => count > 0 ? Stack(children: [
-                IconButton(
-                  icon: const Icon(Icons.notifications),
-                  onPressed: () => context.push('/notifications'),
-                ),
-                Positioned(right: 8, top: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                    child: Text('$count',
-                      style: const TextStyle(color: Colors.white, fontSize: 10),
-                      textAlign: TextAlign.center),
-                  )),
+                IconButton(icon: const Icon(Icons.notifications), onPressed: () => context.push('/notifications')),
+                Positioned(right: 8, top: 8, child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                  child: Text('$count', style: const TextStyle(color: Colors.white, fontSize: 10), textAlign: TextAlign.center),
+                )),
               ]) : const SizedBox.shrink(),
               loading: () => const SizedBox.shrink(),
               error: (_, __) => const SizedBox.shrink(),
@@ -109,15 +104,12 @@ class DashboardPage extends ConsumerWidget {
                   const Icon(Icons.people, color: Colors.white, size: 32),
                   const SizedBox(width: 16),
                   Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Athlètes du club',
-                      style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    const Text('Athlètes du club', style: TextStyle(color: Colors.white70, fontSize: 13)),
                     countAsync.when(
                       data: (n) => Text('$n athlète${n > 1 ? "s" : ""}',
                         style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-                      loading: () => const Text('—',
-                        style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-                      error: (_, __) => const Text('—',
-                        style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                      loading: () => const Text('—', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                      error: (_, __) => const Text('—', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
                     ),
                   ]),
                 ]),

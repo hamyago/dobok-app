@@ -22,23 +22,7 @@ class SoumettreExamenPage extends ConsumerStatefulWidget {
 
 class _SoumettreExamenPageState extends ConsumerState<SoumettreExamenPage> {
   Map<String, dynamic>? _sessionSelectionnee;
-  String _ceinture = 'blanche';
   bool _loading = false;
-
-  final List<String> _ceintures = [
-    'blanche','9keup','8keup','7keup','6keup','5keup',
-    '4keup','3keup','2keup','1keup','1er dan','2e dan',
-    '3e dan','4e dan','5e dan',
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    final idx = _ceintures.indexOf(widget.athlete.ceinture);
-    _ceinture = (idx >= 0 && idx < _ceintures.length - 1)
-        ? _ceintures[idx + 1]
-        : widget.athlete.ceinture;
-  }
 
   Future<void> _soumettre() async {
     if (_sessionSelectionnee == null) {
@@ -51,35 +35,84 @@ class _SoumettreExamenPageState extends ConsumerState<SoumettreExamenPage> {
     }
     setState(() => _loading = true);
     try {
-      // API attend athlete_ids (tableau) et non athlete_id
-      await ApiClient().dio.post('/candidatures', data: {
+      final response = await ApiClient().dio.post('/candidatures', data: {
         'session_id': _sessionSelectionnee!['id'],
         'athlete_ids': [widget.athlete.id],
-        'ceinture_visee': _ceinture,
       });
+
+      final montant = response.data['montant_total'];
+      final message = response.data['message'] as String? ?? 'Candidature soumise !';
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Candidature soumise avec succès !'),
-          backgroundColor: AppTheme.success,
-          behavior: SnackBarBehavior.floating,
-        ));
-        Navigator.pop(context);
+        // Afficher le montant dû dans une dialog
+        await showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Row(children: [
+              Icon(Icons.check_circle, color: AppTheme.success),
+              SizedBox(width: 8),
+              Text('Soumis avec succès'),
+            ]),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(message),
+                if (montant != null && montant > 0) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.warning.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(children: [
+                      const Icon(Icons.payment, color: AppTheme.warning),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(
+                        'Montant à régler auprès de la ligue : ${_formatMontant(montant)} FCFA',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      )),
+                    ]),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        if (mounted) Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
         String msg = 'Erreur lors de la soumission';
         final err = e.toString();
+        if (err.contains('affilie')) msg = 'Club non affilié — régularisez la cotisation auprès de la ligue';
+        if (err.contains('recu')) msg = 'Reçu F.I.T.K.D. non vérifié par la ligue';
+        if (err.contains('Federation') || err.contains('DAN')) msg = 'Ceinture noire/DAN — passage initié par la Fédération uniquement';
         if (err.contains('422')) msg = 'Athlète déjà inscrit à cette session';
-        if (err.contains('club')) msg = 'Club non affilié ou cotisation non à jour';
-        if (err.contains('session')) msg = 'Session fermée aux inscriptions';
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(msg),
           backgroundColor: AppTheme.error,
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 5),
         ));
       }
     }
     if (mounted) setState(() => _loading = false);
+  }
+
+  String _formatMontant(dynamic montant) {
+    final n = (montant as num).toInt();
+    return n.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]} ',
+    );
   }
 
   @override
@@ -113,6 +146,9 @@ class _SoumettreExamenPageState extends ConsumerState<SoumettreExamenPage> {
                     style: const TextStyle(fontWeight: FontWeight.w600)),
                   Text('Ceinture actuelle : ${widget.athlete.ceinture}',
                     style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                  Text('La ceinture visée sera calculée automatiquement',
+                    style: TextStyle(color: Colors.grey.shade400, fontSize: 11,
+                      fontStyle: FontStyle.italic)),
                 ],
               )),
             ]),
@@ -126,7 +162,7 @@ class _SoumettreExamenPageState extends ConsumerState<SoumettreExamenPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Session d\'examen',
+                const Text('Session d\'examen disponible',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 12),
                 sessionsState.when(
@@ -215,28 +251,6 @@ class _SoumettreExamenPageState extends ConsumerState<SoumettreExamenPage> {
                       }).toList(),
                     );
                   },
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Ceinture visée
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Ceinture visée',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: _ceinture,
-                  decoration: const InputDecoration(),
-                  items: _ceintures.map((c) =>
-                    DropdownMenuItem(value: c, child: Text(c))).toList(),
-                  onChanged: (v) => setState(() => _ceinture = v!),
                 ),
               ],
             ),
