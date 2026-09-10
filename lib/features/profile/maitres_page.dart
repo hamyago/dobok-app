@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_client.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/app_text_field.dart';
 
 final maitresProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final response = await ApiClient().dio.get('/maitres');
@@ -19,14 +20,14 @@ class MaitresPage extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Maîtres'),
+        title: const Text('MAÎTRES'),
         leading: BackButton(onPressed: () => Navigator.pop(context)),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showMaitreDialog(context, ref, null),
         backgroundColor: AppTheme.primary,
         icon: const Icon(Icons.person_add, color: Colors.white),
-        label: const Text('Ajouter', style: TextStyle(color: Colors.white)),
+        label: const Text('AJOUTER', style: TextStyle(color: Colors.white)),
       ),
       body: state.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -36,7 +37,8 @@ class MaitresPage extends ConsumerWidget {
             const Icon(Icons.error_outline, size: 48, color: AppTheme.error),
             const SizedBox(height: 12),
             const Text('Impossible de charger les maîtres'),
-            TextButton(onPressed: () => ref.invalidate(maitresProvider), child: const Text('Réessayer')),
+            TextButton(onPressed: () => ref.invalidate(maitresProvider),
+              child: const Text('Réessayer')),
           ],
         )),
         data: (maitres) => maitres.isEmpty
@@ -48,40 +50,39 @@ class MaitresPage extends ConsumerWidget {
                 itemBuilder: (_, i) {
                   final m = maitres[i];
                   final nom = '${m['nom'] ?? ''} ${m['prenom'] ?? ''}'.trim();
-                  final grade = m['grade'] ?? '—';
                   return Container(
                     padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          backgroundColor: Colors.black.withValues(alpha: 0.08),
-                          child: Text(nom.isNotEmpty ? nom[0] : '?',
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                    decoration: BoxDecoration(
+                      color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                    child: Row(children: [
+                      CircleAvatar(
+                        backgroundColor: Colors.black.withValues(alpha: 0.08),
+                        child: Text(nom.isNotEmpty ? nom[0] : '?',
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(nom, style: const TextStyle(fontWeight: FontWeight.w600)),
+                          Text(m['telephone'] ?? '—',
+                            style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                        ],
+                      )),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(nom, style: const TextStyle(fontWeight: FontWeight.w600)),
-                            Text(m['telephone'] ?? '—',
-                              style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                          ],
-                        )),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(grade, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.edit, size: 18, color: AppTheme.primary),
-                          onPressed: () => _showMaitreDialog(context, ref, m),
-                        ),
-                      ],
-                    ),
+                        child: Text(m['grade'] ?? '—',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit, size: 18, color: AppTheme.primary),
+                        onPressed: () => _showMaitreDialog(context, ref, m),
+                      ),
+                    ]),
                   );
                 },
               ),
@@ -99,38 +100,42 @@ class MaitresPage extends ConsumerWidget {
     int dan = m?['dan'] ?? 1;
     bool loading = false;
 
-    final grades = ['1er dan','2e dan','3e dan','4e dan','5e dan','6e dan','7e dan','8e dan','9e dan'];
+    final grades = ['1er dan','2e dan','3e dan','4e dan','5e dan',
+      '6e dan','7e dan','8e dan','9e dan'];
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setS) => AlertDialog(
-          title: Text(isEdit ? 'Modifier le maître' : 'Nouveau maître'),
+          title: Text(isEdit ? 'MODIFIER LE MAÎTRE' : 'NOUVEAU MAÎTRE'),
           content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              TextField(controller: nomCtrl,
-                decoration: const InputDecoration(labelText: 'Nom *')),
+              AppTextInput(controller: nomCtrl, label: 'Nom *'),
               const SizedBox(height: 8),
-              TextField(controller: prenomCtrl,
-                decoration: const InputDecoration(labelText: 'Prénom *')),
+              AppTextInput(controller: prenomCtrl, label: 'Prénom *'),
               const SizedBox(height: 8),
-              TextField(controller: telCtrl, keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'Téléphone')),
+              AppTextInput(controller: telCtrl, label: 'Téléphone',
+                uppercase: false, keyboardType: TextInputType.phone),
               const SizedBox(height: 8),
-              TextField(controller: emailCtrl, keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'Email')),
+              AppTextInput(controller: emailCtrl, label: 'Email',
+                uppercase: false, keyboardType: TextInputType.emailAddress),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 value: grade,
                 decoration: const InputDecoration(labelText: 'Grade'),
-                items: grades.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
+                items: grades.map((g) =>
+                  DropdownMenuItem(value: g, child: Text(g.toUpperCase()))).toList(),
                 onChanged: (v) {
-                  if (v != null) {
-                    grade = v;
-                    dan = grades.indexOf(v) + 1;
-                  }
+                  if (v != null) { grade = v; dan = grades.indexOf(v) + 1; }
                 },
               ),
+              if (!isEdit) ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'Le mot de passe par défaut sera : Dobok@2025!',
+                  style: TextStyle(color: Colors.grey, fontSize: 11),
+                ),
+              ],
             ]),
           ),
           actions: [
@@ -147,8 +152,7 @@ class MaitresPage extends ConsumerWidget {
                       'prenom': prenomCtrl.text.trim(),
                       if (telCtrl.text.isNotEmpty) 'telephone': telCtrl.text.trim(),
                       if (emailCtrl.text.isNotEmpty) 'email': emailCtrl.text.trim(),
-                      'grade': grade,
-                      'dan': dan,
+                      'grade': grade, 'dan': dan,
                     });
                   } else {
                     await ApiClient().dio.post('/maitres', data: {
@@ -156,28 +160,25 @@ class MaitresPage extends ConsumerWidget {
                       'prenom': prenomCtrl.text.trim(),
                       if (telCtrl.text.isNotEmpty) 'telephone': telCtrl.text.trim(),
                       if (emailCtrl.text.isNotEmpty) 'email': emailCtrl.text.trim(),
-                      'grade': grade,
-                      'dan': dan,
+                      'grade': grade, 'dan': dan,
                       'club_id': user?.clubId,
-                      'mot_de_passe': 'Dobok@2025!',
+                      'password': 'Dobok@2025!',
                     });
                   }
                   ref.invalidate(maitresProvider);
                   if (ctx.mounted) Navigator.pop(ctx);
                 } catch (e) {
-                  if (ctx.mounted) {
-                    ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-                      content: Text('Erreur : $e'),
-                      backgroundColor: AppTheme.error,
-                    ));
-                  }
+                  if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                    content: Text('Erreur : $e'),
+                    backgroundColor: AppTheme.error,
+                  ));
                 }
                 setS(() => loading = false);
               },
               child: loading
                   ? const SizedBox(height: 16, width: 16,
                       child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : Text(isEdit ? 'Enregistrer' : 'Ajouter'),
+                  : Text(isEdit ? 'ENREGISTRER' : 'AJOUTER'),
             ),
           ],
         ),

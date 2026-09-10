@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/athlete_model.dart';
 import '../../core/providers/athletes_provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/app_text_field.dart';
 
 class AthleteFormPage extends ConsumerStatefulWidget {
-  final AthleteModel? athlete; // null = création, non-null = modification
+  final AthleteModel? athlete;
   const AthleteFormPage({super.key, this.athlete});
 
   @override
@@ -22,15 +23,15 @@ class _AthleteFormPageState extends ConsumerState<AthleteFormPage> {
     text: widget.athlete?.dateNaissance?.substring(0, 10));
   late final _lieuNaissance = TextEditingController(text: widget.athlete?.lieuNaissance);
   late final _nationalite = TextEditingController(
-    text: widget.athlete?.nationalite ?? 'Ivoirienne');
+    text: widget.athlete?.nationalite ?? 'IVOIRIENNE');
   late final _passeport = TextEditingController(text: widget.athlete?.passeportNumero);
   String _sexe = 'masculin';
   String _ceinture = 'blanche';
 
   final List<String> _ceintures = [
-    'blanche', '9keup', '8keup', '7keup', '6keup', '5keup',
-    '4keup', '3keup', '2keup', '1keup', '1er dan', '2e dan',
-    '3e dan', '4e dan', '5e dan',
+    'blanche','9keup','8keup','7keup','6keup','5keup',
+    '4keup','3keup','2keup','1keup','1er dan','2e dan',
+    '3e dan','4e dan','5e dan',
   ];
 
   @override
@@ -81,9 +82,8 @@ class _AthleteFormPageState extends ConsumerState<AthleteFormPage> {
       ));
       Navigator.pop(context);
     } else if (mounted) {
-      final err = ref.read(athleteNotifierProvider).error;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur : $err'),
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Erreur lors de l\'enregistrement'),
         backgroundColor: AppTheme.error,
         behavior: SnackBarBehavior.floating,
       ));
@@ -106,12 +106,29 @@ class _AthleteFormPageState extends ConsumerState<AthleteFormPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            _Section(title: 'Informations personnelles', children: [
-              _Field(controller: _nom, label: 'Nom *', required: true),
-              _Field(controller: _prenom, label: 'Prénom *', required: true),
-              _DateField(controller: _dateNaissance, label: 'Date de naissance'),
-              _Field(controller: _lieuNaissance, label: 'Lieu de naissance'),
-              _Field(controller: _nationalite, label: 'Nationalité'),
+            _Section(title: 'INFORMATIONS PERSONNELLES', children: [
+              AppTextField(controller: _nom, label: 'Nom *', required: true),
+              AppTextField(controller: _prenom, label: 'Prénom *', required: true),
+              AppTextField(
+                controller: _dateNaissance,
+                label: 'Date de naissance',
+                uppercase: false,
+                readOnly: true,
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime(2000),
+                    firstDate: DateTime(1950),
+                    lastDate: DateTime.now(),
+                  );
+                  if (picked != null) {
+                    _dateNaissance.text = picked.toIso8601String().substring(0, 10);
+                  }
+                },
+                suffixIcon: const Icon(Icons.calendar_today, size: 18),
+              ),
+              AppTextField(controller: _lieuNaissance, label: 'Lieu de naissance'),
+              AppTextField(controller: _nationalite, label: 'Nationalité'),
               Row(children: [
                 const Text('Sexe : ', style: TextStyle(color: Colors.grey, fontSize: 13)),
                 const SizedBox(width: 8),
@@ -121,24 +138,36 @@ class _AthleteFormPageState extends ConsumerState<AthleteFormPage> {
               ]),
             ]),
             const SizedBox(height: 16),
-            _Section(title: 'Contact', children: [
-              _Field(controller: _tel, label: 'Téléphone', keyboardType: TextInputType.phone),
-              _Field(controller: _email, label: 'Email', keyboardType: TextInputType.emailAddress),
+            _Section(title: 'CONTACT', children: [
+              AppTextField(
+                controller: _tel,
+                label: 'Téléphone',
+                uppercase: false,
+                keyboardType: TextInputType.phone,
+              ),
+              AppTextField(
+                controller: _email,
+                label: 'Email',
+                uppercase: false,
+                keyboardType: TextInputType.emailAddress,
+              ),
             ]),
             const SizedBox(height: 16),
-            _Section(title: 'Sport', children: [
-              const Text('Ceinture actuelle', style: TextStyle(color: Colors.grey, fontSize: 13)),
+            _Section(title: 'SPORT', children: [
+              const Text('Ceinture actuelle',
+                style: TextStyle(color: Colors.grey, fontSize: 13)),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 value: _ceinture,
                 decoration: const InputDecoration(),
-                items: _ceintures.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                items: _ceintures.map((c) =>
+                  DropdownMenuItem(value: c, child: Text(c.toUpperCase()))).toList(),
                 onChanged: (v) => setState(() => _ceinture = v!),
               ),
             ]),
             const SizedBox(height: 16),
-            _Section(title: 'Documents', children: [
-              _Field(controller: _passeport, label: 'Numéro de passeport'),
+            _Section(title: 'DOCUMENTS', children: [
+              AppTextField(controller: _passeport, label: 'Numéro de passeport'),
             ]),
             const SizedBox(height: 24),
             ElevatedButton(
@@ -146,7 +175,7 @@ class _AthleteFormPageState extends ConsumerState<AthleteFormPage> {
               child: isLoading
                   ? const SizedBox(height: 20, width: 20,
                       child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : Text(isEdit ? 'Enregistrer les modifications' : 'Ajouter l\'athlète'),
+                  : Text(isEdit ? 'ENREGISTRER LES MODIFICATIONS' : 'AJOUTER L\'ATHLÈTE'),
             ),
             const SizedBox(height: 24),
           ],
@@ -165,66 +194,17 @@ class _Section extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          Text(title, style: const TextStyle(
+            fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primary)),
           const SizedBox(height: 12),
-          ...children.map((c) => Padding(padding: const EdgeInsets.only(bottom: 12), child: c)),
+          ...children.map((c) => Padding(
+            padding: const EdgeInsets.only(bottom: 12), child: c)),
         ],
       ),
-    );
-  }
-}
-
-class _Field extends StatelessWidget {
-  final TextEditingController controller;
-  final String label;
-  final bool required;
-  final TextInputType? keyboardType;
-  const _Field({required this.controller, required this.label,
-    this.required = false, this.keyboardType});
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      decoration: InputDecoration(labelText: label),
-      validator: required ? (v) => (v == null || v.isEmpty) ? 'Champ requis' : null : null,
-    );
-  }
-}
-
-class _DateField extends StatelessWidget {
-  final TextEditingController controller;
-  final String label;
-  const _DateField({required this.controller, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      readOnly: true,
-      decoration: InputDecoration(
-        labelText: label,
-        suffixIcon: const Icon(Icons.calendar_today, size: 18),
-      ),
-      onTap: () async {
-        final picked = await showDatePicker(
-          context: context,
-          initialDate: DateTime(2000),
-          firstDate: DateTime(1950),
-          lastDate: DateTime.now(),
-        );
-        if (picked != null) {
-          controller.text = picked.toIso8601String().substring(0, 10);
-        }
-      },
     );
   }
 }
@@ -237,15 +217,16 @@ class _Radio extends StatelessWidget {
   const _Radio(this.label, this.value, this.groupValue, this.onChanged);
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Radio<String>(value: value, groupValue: groupValue,
-          activeColor: AppTheme.primary,
-          onChanged: (v) => onChanged(v!)),
-        Text(label, style: const TextStyle(fontSize: 13)),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Radio<String>(
+        value: value,
+        groupValue: groupValue,
+        activeColor: AppTheme.primary,
+        onChanged: (v) => onChanged(v!),
+      ),
+      Text(label, style: const TextStyle(fontSize: 13)),
+    ],
+  );
 }
