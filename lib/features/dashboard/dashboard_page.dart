@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/athletes_provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../notifications/notifications_page.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
@@ -14,6 +15,7 @@ class DashboardPage extends ConsumerWidget {
     final isPresident = user?.role == 'president';
     final clubId = user?.clubId ?? 0;
     final countAsync = ref.watch(athletesCountProvider(clubId));
+    final nonLuesAsync = ref.watch(nonLuesCountProvider);
 
     final cards = <Map<String, dynamic>>[
       {'icon': Icons.people, 'label': 'Athlètes', 'color': AppTheme.primary, 'route': '/athletes'},
@@ -22,7 +24,7 @@ class DashboardPage extends ConsumerWidget {
         {'icon': Icons.business, 'label': 'Mon Club', 'color': Colors.blue, 'route': '/club'},
       ],
       {'icon': Icons.person, 'label': 'Mon Profil', 'color': Colors.teal, 'route': '/profile'},
-      {'icon': Icons.notifications, 'label': 'Notifications', 'color': Colors.purple, 'route': null},
+      {'icon': Icons.notifications, 'label': 'Notifications', 'color': Colors.purple, 'route': '/notifications'},
     ];
 
     return PopScope(
@@ -40,6 +42,25 @@ class DashboardPage extends ConsumerWidget {
             const Text('Do-Bok CI', style: TextStyle(fontWeight: FontWeight.bold)),
           ]),
           actions: [
+            nonLuesAsync.when(
+              data: (count) => count > 0 ? Stack(children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications),
+                  onPressed: () => context.push('/notifications'),
+                ),
+                Positioned(right: 8, top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    child: Text('$count',
+                      style: const TextStyle(color: Colors.white, fontSize: 10),
+                      textAlign: TextAlign.center),
+                  )),
+              ]) : const SizedBox.shrink(),
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
             IconButton(
               icon: const Icon(Icons.logout),
               onPressed: () async {
@@ -111,9 +132,7 @@ class DashboardPage extends ConsumerWidget {
                     icon: card['icon'] as IconData,
                     label: card['label'] as String,
                     color: card['color'] as Color,
-                    onTap: card['route'] != null
-                        ? () => context.push(card['route'] as String)
-                        : () {},
+                    onTap: () => context.push(card['route'] as String),
                   )).toList(),
                 ),
               ),

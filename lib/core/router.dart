@@ -7,6 +7,7 @@ import '../features/athletes/athletes_page.dart';
 import '../features/candidatures/candidatures_page.dart';
 import '../features/club/club_page.dart';
 import '../features/profile/profile_page.dart';
+import '../features/notifications/notifications_page.dart';
 import 'providers/auth_provider.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -30,6 +31,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/candidatures', builder: (c, s) => const CandidaturesPage()),
       GoRoute(path: '/club', builder: (c, s) => const ClubPage()),
       GoRoute(path: '/profile', builder: (c, s) => const ProfilePage()),
+      GoRoute(path: '/notifications', builder: (c, s) => const NotificationsPage()),
     ],
   );
 });
