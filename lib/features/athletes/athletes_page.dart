@@ -8,11 +8,25 @@ import '../../core/theme/app_theme.dart';
 import 'athlete_form_page.dart';
 import 'athlete_detail_page.dart';
 
-class AthletesPage extends ConsumerWidget {
+class AthletesPage extends ConsumerStatefulWidget {
   const AthletesPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AthletesPage> createState() => _AthletesPageState();
+}
+
+class _AthletesPageState extends ConsumerState<AthletesPage> {
+  final _search = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(athletesProvider);
     final user = ref.watch(authProvider).valueOrNull;
     final clubId = user?.clubId;
@@ -20,49 +34,104 @@ class AthletesPage extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Athlètes'),
+        title: const Text('ATHLÈTES'),
         leading: BackButton(onPressed: () => context.pop()),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          await Navigator.push(context, MaterialPageRoute(builder: (_) => const AthleteFormPage()));
+          await Navigator.push(context, MaterialPageRoute(
+            builder: (_) => const AthleteFormPage()));
           ref.invalidate(athletesProvider);
         },
         backgroundColor: AppTheme.primary,
         icon: const Icon(Icons.person_add, color: Colors.white),
-        label: const Text('Ajouter', style: TextStyle(color: Colors.white)),
+        label: const Text('AJOUTER', style: TextStyle(color: Colors.white)),
       ),
-      body: state.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, size: 48, color: AppTheme.error),
-            const SizedBox(height: 12),
-            const Text('Impossible de charger les athlètes'),
-            TextButton(onPressed: () => ref.invalidate(athletesProvider), child: const Text('Réessayer')),
-          ],
-        )),
-        data: (athletes) {
-          final mine = clubId != null
-              ? athletes.where((a) => a.clubId == clubId).toList()
-              : athletes;
-          if (mine.isEmpty) return const Center(child: Text('Aucun athlète enregistré'));
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-            itemCount: mine.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (_, i) => _AthleteCard(
-              athlete: mine[i],
-              onTap: () async {
-                await Navigator.push(context, MaterialPageRoute(
-                  builder: (_) => AthleteDetailPage(athlete: mine[i]),
-                ));
-                ref.invalidate(athletesProvider);
+      body: Column(
+        children: [
+          // Barre de recherche
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: TextField(
+              controller: _search,
+              onChanged: (v) => setState(() => _query = v.toLowerCase()),
+              decoration: InputDecoration(
+                hintText: 'Rechercher un athlète...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _query.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _search.clear();
+                          setState(() => _query = '');
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+            ),
+          ),
+          Expanded(
+            child: state.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline, size: 48, color: AppTheme.error),
+                  const SizedBox(height: 12),
+                  const Text('Impossible de charger les athlètes'),
+                  TextButton(
+                    onPressed: () => ref.invalidate(athletesProvider),
+                    child: const Text('Réessayer')),
+                ],
+              )),
+              data: (athletes) {
+                // Filtrer par club
+                var mine = clubId != null
+                    ? athletes.where((a) => a.clubId == clubId).toList()
+                    : athletes;
+                // Filtrer par recherche
+                if (_query.isNotEmpty) {
+                  mine = mine.where((a) =>
+                    a.fullName.toLowerCase().contains(_query) ||
+                    (a.telephone?.contains(_query) ?? false) ||
+                    (a.numeroLicence?.toLowerCase().contains(_query) ?? false) ||
+                    a.ceinture.toLowerCase().contains(_query)
+                  ).toList();
+                }
+                // Tri alphabétique
+                mine.sort((a, b) => a.nom.compareTo(b.nom));
+
+                if (mine.isEmpty) {
+                  return Center(child: Text(
+                    _query.isNotEmpty
+                        ? 'Aucun résultat pour "$_query"'
+                        : 'Aucun athlète enregistré',
+                  ));
+                }
+                return ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                  itemCount: mine.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (_, i) => _AthleteCard(
+                    athlete: mine[i],
+                    onTap: () async {
+                      await Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => AthleteDetailPage(athlete: mine[i])));
+                      ref.invalidate(athletesProvider);
+                    },
+                  ),
+                );
               },
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
@@ -78,21 +147,32 @@ class _AthleteCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white, borderRadius: BorderRadius.circular(12)),
         child: Row(children: [
-          CircleAvatar(
-            backgroundColor: AppTheme.primary.withValues(alpha: 0.1),
-            child: Text(athlete.initiale,
-              style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold)),
-          ),
+          athlete.photoUrl != null
+              ? CircleAvatar(
+                  backgroundImage: NetworkImage(
+                    'https://api.do-bok.com${athlete.photoUrl}'),
+                  radius: 22,
+                )
+              : CircleAvatar(
+                  backgroundColor: AppTheme.primary.withValues(alpha: 0.1),
+                  radius: 22,
+                  child: Text(athlete.initiale,
+                    style: const TextStyle(
+                      color: AppTheme.primary, fontWeight: FontWeight.bold)),
+                ),
           const SizedBox(width: 12),
           Expanded(child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(athlete.fullName, style: const TextStyle(fontWeight: FontWeight.w600)),
+              Text(athlete.fullName,
+                style: const TextStyle(fontWeight: FontWeight.w600)),
               if (athlete.telephone != null)
-                Text(athlete.telephone!, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                Text(athlete.telephone!,
+                  style: const TextStyle(color: Colors.grey, fontSize: 12)),
             ],
           )),
           Container(
@@ -101,11 +181,12 @@ class _AthleteCard extends StatelessWidget {
               color: AppTheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Text(athlete.ceinture,
-              style: const TextStyle(fontSize: 11, color: AppTheme.primary)),
+            child: Text(athlete.ceinture.toUpperCase(),
+              style: const TextStyle(fontSize: 10, color: AppTheme.primary,
+                fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 4),
-          const Icon(Icons.chevron_right, color: Colors.grey),
+          const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
         ]),
       ),
     );

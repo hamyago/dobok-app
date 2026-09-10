@@ -5,10 +5,10 @@ import '../../core/api/api_client.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_text_field.dart';
+import '../../core/widgets/photo_picker.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key});
-
   @override
   ConsumerState<ProfilePage> createState() => _ProfilePageState();
 }
@@ -20,13 +20,10 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   late TextEditingController _email;
   bool _loadingProfile = false;
   bool _loadingPassword = false;
-
   final _ancienMdp = TextEditingController();
   final _nouveauMdp = TextEditingController();
   final _confirmMdp = TextEditingController();
-  bool _obscureAncien = true;
-  bool _obscureNouveau = true;
-  bool _obscureConfirm = true;
+  bool _obscureAncien = true, _obscureNouveau = true, _obscureConfirm = true;
 
   @override
   void initState() {
@@ -58,15 +55,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       });
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Profil mis à jour !'),
-        backgroundColor: AppTheme.success,
-        behavior: SnackBarBehavior.floating,
-      ));
+        backgroundColor: AppTheme.success, behavior: SnackBarBehavior.floating));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Erreur : $e'),
-        backgroundColor: AppTheme.error,
-        behavior: SnackBarBehavior.floating,
-      ));
+        backgroundColor: AppTheme.error, behavior: SnackBarBehavior.floating));
     }
     if (mounted) setState(() => _loadingProfile = false);
   }
@@ -75,43 +68,31 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     if (_nouveauMdp.text != _confirmMdp.text) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Les mots de passe ne correspondent pas'),
-        backgroundColor: AppTheme.error,
-        behavior: SnackBarBehavior.floating,
-      ));
+        backgroundColor: AppTheme.error, behavior: SnackBarBehavior.floating));
       return;
     }
     if (_nouveauMdp.text.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Minimum 6 caractères'),
-        backgroundColor: AppTheme.error,
-        behavior: SnackBarBehavior.floating,
-      ));
+        backgroundColor: AppTheme.error, behavior: SnackBarBehavior.floating));
       return;
     }
     final user = ref.read(authProvider).valueOrNull;
     setState(() => _loadingPassword = true);
     try {
-      final endpoint = user?.role == 'maitre'
-          ? '/maitre/change-password'
-          : '/club/change-password';
+      final endpoint = user?.role == 'maitre' ? '/maitre/change-password' : '/club/change-password';
       await ApiClient().dio.post(endpoint, data: {
         'ancien_mot_de_passe': _ancienMdp.text,
         'nouveau_mot_de_passe': _nouveauMdp.text,
       });
       _ancienMdp.clear(); _nouveauMdp.clear(); _confirmMdp.clear();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Mot de passe modifié avec succès !'),
-        backgroundColor: AppTheme.success,
-        behavior: SnackBarBehavior.floating,
-      ));
+        content: Text('Mot de passe modifié !'),
+        backgroundColor: AppTheme.success, behavior: SnackBarBehavior.floating));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(e.toString().contains('422')
-            ? 'Ancien mot de passe incorrect'
-            : 'Erreur lors du changement'),
-        backgroundColor: AppTheme.error,
-        behavior: SnackBarBehavior.floating,
-      ));
+        content: Text(e.toString().contains('422') ? 'Ancien mot de passe incorrect' : 'Erreur'),
+        backgroundColor: AppTheme.error, behavior: SnackBarBehavior.floating));
     }
     if (mounted) setState(() => _loadingPassword = false);
   }
@@ -120,24 +101,24 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).valueOrNull;
     final isPresident = user?.role == 'president';
+    final photoEndpoint = isPresident ? '/club/photo' : '/maitre/photo';
 
     return Scaffold(
       backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        title: const Text('MON PROFIL'),
-        leading: BackButton(onPressed: () => context.pop()),
-      ),
+      appBar: AppBar(title: const Text('MON PROFIL'),
+        leading: BackButton(onPressed: () => context.pop())),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Center(child: Column(children: [
-            CircleAvatar(
-              radius: 40,
-              backgroundColor: AppTheme.primary.withValues(alpha: 0.1),
-              child: Text(
+            PhotoPickerWidget(
+              currentPhotoUrl: null,
+              uploadEndpoint: photoEndpoint,
+              radius: 48,
+              placeholder: Text(
                 user?.nom.isNotEmpty == true ? user!.nom[0].toUpperCase() : '?',
-                style: const TextStyle(fontSize: 32, color: AppTheme.primary, fontWeight: FontWeight.bold),
-              ),
+                style: const TextStyle(fontSize: 36, color: AppTheme.primary,
+                  fontWeight: FontWeight.bold)),
             ),
             const SizedBox(height: 8),
             Text('${user?.nom ?? ""} ${user?.prenom ?? ""}',
@@ -146,7 +127,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               style: const TextStyle(color: Colors.grey)),
           ])),
           const SizedBox(height: 24),
-          _Card(title: 'INFORMATIONS PERSONNELLES', children: [
+          _Card('INFORMATIONS PERSONNELLES', [
             AppTextField(controller: _nom, label: 'Nom'),
             const SizedBox(height: 12),
             AppTextField(controller: _prenom, label: 'Prénom'),
@@ -166,39 +147,24 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             ),
           ]),
           const SizedBox(height: 16),
-          _Card(title: 'CHANGER LE MOT DE PASSE', children: [
-            AppTextField(
-              controller: _ancienMdp,
-              label: 'Ancien mot de passe',
-              uppercase: false,
-              obscureText: _obscureAncien,
+          _Card('CHANGER LE MOT DE PASSE', [
+            AppTextField(controller: _ancienMdp, label: 'Ancien mot de passe',
+              uppercase: false, obscureText: _obscureAncien,
               suffixIcon: IconButton(
                 icon: Icon(_obscureAncien ? Icons.visibility_off : Icons.visibility),
-                onPressed: () => setState(() => _obscureAncien = !_obscureAncien),
-              ),
-            ),
+                onPressed: () => setState(() => _obscureAncien = !_obscureAncien))),
             const SizedBox(height: 12),
-            AppTextField(
-              controller: _nouveauMdp,
-              label: 'Nouveau mot de passe',
-              uppercase: false,
-              obscureText: _obscureNouveau,
+            AppTextField(controller: _nouveauMdp, label: 'Nouveau mot de passe',
+              uppercase: false, obscureText: _obscureNouveau,
               suffixIcon: IconButton(
                 icon: Icon(_obscureNouveau ? Icons.visibility_off : Icons.visibility),
-                onPressed: () => setState(() => _obscureNouveau = !_obscureNouveau),
-              ),
-            ),
+                onPressed: () => setState(() => _obscureNouveau = !_obscureNouveau))),
             const SizedBox(height: 12),
-            AppTextField(
-              controller: _confirmMdp,
-              label: 'Confirmer le nouveau mot de passe',
-              uppercase: false,
-              obscureText: _obscureConfirm,
+            AppTextField(controller: _confirmMdp, label: 'Confirmer',
+              uppercase: false, obscureText: _obscureConfirm,
               suffixIcon: IconButton(
                 icon: Icon(_obscureConfirm ? Icons.visibility_off : Icons.visibility),
-                onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
-              ),
-            ),
+                onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm))),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _loadingPassword ? null : _changePassword,
@@ -219,8 +185,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             label: const Text('SE DÉCONNECTER', style: TextStyle(color: AppTheme.error)),
             style: OutlinedButton.styleFrom(
               side: const BorderSide(color: AppTheme.error),
-              minimumSize: const Size(double.infinity, 52),
-            ),
+              minimumSize: const Size(double.infinity, 52)),
           ),
           const SizedBox(height: 24),
         ],
@@ -232,8 +197,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 class _Card extends StatelessWidget {
   final String title;
   final List<Widget> children;
-  const _Card({required this.title, required this.children});
-
+  const _Card(this.title, this.children);
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(16),
