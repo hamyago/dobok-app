@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "634678176284",
+    "project_id": "do-bok-ci",
+    "storage_bucket": "do-bok-ci.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:634678176284:android:e093485fbe56312722cdd9",
+        "android_client_info": {
+          "package_name": "com.oyopmt.dobok_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDLGmHbdd1B-5QrpQPWfjMPsfHB4vCjhxI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
