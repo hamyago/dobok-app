@@ -5,7 +5,6 @@ import '../../core/api/api_client.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_text_field.dart';
-import '../../core/widgets/photo_picker.dart';
 
 class EditClubPage extends ConsumerStatefulWidget {
   final Map<String, dynamic> club;
@@ -28,12 +27,12 @@ class _EditClubPageState extends ConsumerState<EditClubPage> {
   @override
   void initState() {
     super.initState();
-    _nom = TextEditingController(text: widget.club['nom'] as String?);
-    _adresse = TextEditingController(text: widget.club['adresse'] as String?);
-    _tel = TextEditingController(text: widget.club['telephone'] as String?);
-    _email = TextEditingController(text: widget.club['email'] as String?);
-    _lat = (widget.club['latitude'] as num?)?.toDouble();
-    _lng = (widget.club['longitude'] as num?)?.toDouble();
+    _nom     = TextEditingController(text: widget.club['nom'] as String? ?? '');
+    _adresse = TextEditingController(text: widget.club['adresse'] as String? ?? '');
+    _tel     = TextEditingController(text: widget.club['telephone'] as String? ?? '');
+    _email   = TextEditingController(text: widget.club['email'] as String? ?? '');
+    _lat     = (widget.club['latitude'] as num?)?.toDouble();
+    _lng     = (widget.club['longitude'] as num?)?.toDouble();
   }
 
   @override
@@ -59,11 +58,12 @@ class _EditClubPageState extends ConsumerState<EditClubPage> {
         }
       }
       if (permission == LocationPermission.deniedForever) {
-        throw Exception('Permission GPS refusée définitivement — activez-la dans les paramètres');
+        throw Exception('Activez le GPS dans les paramètres');
       }
 
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high);
+        desiredAccuracy: LocationAccuracy.high,
+      );
       setState(() {
         _lat = position.latitude;
         _lng = position.longitude;
@@ -92,12 +92,12 @@ class _EditClubPageState extends ConsumerState<EditClubPage> {
     try {
       final user = ref.read(authProvider).valueOrNull;
       await ApiClient().dio.put('/clubs/${user?.clubId}', data: {
-        'nom': _nom.text.trim(),
-        if (_adresse.text.isNotEmpty) 'adresse': _adresse.text.trim(),
-        if (_tel.text.isNotEmpty) 'telephone': _tel.text.trim(),
-        if (_email.text.isNotEmpty) 'email': _email.text.trim(),
-        if (_lat != null) 'latitude': _lat,
-        if (_lng != null) 'longitude': _lng,
+        'nom':                        _nom.text.trim(),
+        if (_adresse.text.isNotEmpty) 'adresse':   _adresse.text.trim(),
+        if (_tel.text.isNotEmpty)     'telephone':  _tel.text.trim(),
+        if (_email.text.isNotEmpty)   'email':      _email.text.trim(),
+        if (_lat != null)             'latitude':   _lat,
+        if (_lng != null)             'longitude':  _lng,
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -121,8 +121,6 @@ class _EditClubPageState extends ConsumerState<EditClubPage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(authProvider).valueOrNull;
-
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
@@ -132,70 +130,82 @@ class _EditClubPageState extends ConsumerState<EditClubPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Logo club
-          Center(child: Column(children: [
-            PhotoPickerWidget(
-              currentPhotoUrl: widget.club['photos'] as String?,
-              uploadEndpoint: '/clubs/${user?.clubId}/logo',
-              radius: 48,
-              placeholder: const Icon(Icons.business, size: 48, color: AppTheme.primary),
-            ),
-            const SizedBox(height: 8),
-            const Text('Appuyez pour changer le logo',
-              style: TextStyle(color: Colors.grey, fontSize: 12)),
-          ])),
-          const SizedBox(height: 20),
-
+          // Infos club
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white, borderRadius: BorderRadius.circular(12)),
-            child: Column(children: [
-              AppTextField(controller: _nom, label: 'Nom du club'),
-              const SizedBox(height: 12),
-              AppTextField(controller: _adresse, label: 'Adresse'),
-              const SizedBox(height: 12),
-              AppTextField(controller: _tel, label: 'Téléphone',
-                uppercase: false, keyboardType: TextInputType.phone),
-              const SizedBox(height: 12),
-              AppTextField(controller: _email, label: 'Email',
-                uppercase: false, keyboardType: TextInputType.emailAddress),
-              const SizedBox(height: 16),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('INFORMATIONS', style: TextStyle(
+                  fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primary)),
+                const SizedBox(height: 16),
+                AppTextField(controller: _nom,     label: 'Nom du club'),
+                const SizedBox(height: 12),
+                AppTextField(controller: _adresse, label: 'Adresse'),
+                const SizedBox(height: 12),
+                AppTextField(controller: _tel,   label: 'Téléphone',
+                  uppercase: false, keyboardType: TextInputType.phone),
+                const SizedBox(height: 12),
+                AppTextField(controller: _email, label: 'Email',
+                  uppercase: false, keyboardType: TextInputType.emailAddress),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
 
-              // GPS
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppTheme.primary.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2)),
-                ),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('POSITION GPS', style: TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.primary)),
-                  const SizedBox(height: 8),
-                  if (_lat != null && _lng != null)
-                    Text('📍 ${_lat!.toStringAsFixed(5)}, ${_lng!.toStringAsFixed(5)}',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _gpsLoading ? null : _getGps,
-                      icon: _gpsLoading
-                          ? const SizedBox(height: 16, width: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.my_location),
-                      label: Text(_lat != null
-                          ? 'METTRE À JOUR MA POSITION'
-                          : 'OBTENIR MA POSITION GPS'),
+          // GPS
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('POSITION GPS', style: TextStyle(
+                  fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primary)),
+                const SizedBox(height: 12),
+                if (_lat != null && _lng != null)
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.success.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
                     ),
+                    child: Row(children: [
+                      const Icon(Icons.location_on, color: AppTheme.success, size: 16),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${_lat!.toStringAsFixed(5)}, ${_lng!.toStringAsFixed(5)}',
+                        style: const TextStyle(
+                          color: AppTheme.success, fontSize: 13, fontWeight: FontWeight.w500),
+                      ),
+                    ]),
                   ),
-                ]),
-              ),
-            ]),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _gpsLoading ? null : _getGps,
+                    icon: _gpsLoading
+                        ? const SizedBox(height: 16, width: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.my_location),
+                    label: Text(_lat != null
+                        ? 'METTRE À JOUR MA POSITION'
+                        : 'OBTENIR MA POSITION GPS'),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 24),
+
           ElevatedButton(
             onPressed: _loading ? null : _save,
             child: _loading
