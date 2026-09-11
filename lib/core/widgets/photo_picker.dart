@@ -6,15 +6,15 @@ import 'package:image_picker/image_picker.dart';
 import '../api/api_client.dart';
 import '../theme/app_theme.dart';
 
-/// Widget de sélection/upload de photo.
+/// Widget de sélection/upload de photo — v3
 ///
-/// Corrections v2 :
-/// - Affichage immédiat du fichier local (File) dès la sélection,
-///   avant même la fin de l'upload → l'utilisateur voit sa photo de suite.
-/// - Après upload réussi, on stocke l'URL distante et on force le refresh
-///   du cache CachedNetworkImage via une clé temporelle unique.
-/// - `_effectiveUrl` construit toujours une URL absolue (https://).
-/// - Gestion d'erreur réseau affichée dans l'avatar (icône cassée).
+/// Correction du bug "photo disparaît après rebuild parent" :
+/// - `onUploaded` est appelé APRÈS que `_remoteUrl` et `_localFile` sont
+///   déjà fixés dans le state local. Même si le parent reconstruit le widget
+///   (via invalidate Riverpod), le state interne est préservé grâce à la key
+///   stable ET à `didUpdateWidget` qui n'écrase `_remoteUrl` que si le parent
+///   fournit une nouvelle URL non-null différente.
+/// - `_localFile` reste affiché tant que `_remoteUrl` n'est pas confirmée.
 class PhotoPickerWidget extends StatefulWidget {
   final String? currentPhotoUrl;
   final String uploadEndpoint;
@@ -38,20 +38,45 @@ class PhotoPickerWidget extends StatefulWidget {
 class _PhotoPickerWidgetState extends State<PhotoPickerWidget> {
   bool _uploading = false;
 
-  /// Fichier local sélectionné mais pas encore uploadé (ou en cours d'upload).
-  /// Permet d'afficher la photo IMMÉDIATEMENT après sélection.
+  /// Fichier local — affiché immédiatement après sélection.
   File? _localFile;
 
-  /// URL retournée par l'API après un upload réussi.
-  String? _remoteUrl;
+  /// URL distante confirmée par l'API après un upload réussi.
+  /// Prioritaire sur widget.currentPhotoUrl une fois définie.
+  String? _confirmedRemoteUrl;
 
-  /// Clé de cache unique — incrémentée après chaque upload pour forcer
-  /// CachedNetworkImage à recharger l'image même si l'URL ne change pas.
+  /// Incrémenté après chaque upload pour invalider le cache CachedNetworkImage.
   int _cacheKey = 0;
 
-  /// URL absolue finale utilisée pour l'affichage réseau.
+  @override
+  void didUpdateWidget(PhotoPickerWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Le parent a été reconstruit (ex: invalidate Riverpod).
+    // On accepte la nouvelle URL du parent SEULEMENT si :
+    //   - on n'a pas encore de URL confirmée localement, OU
+    //   - le parent envoie une URL nouvelle et non-null (=vraie mise à jour API)
+    final newUrl = widget.currentPhotoUrl;
+    if (_confirmedRemoteUrl == null && newUrl != null && newUrl.isNotEmpty) {
+      // Première initialisation depuis le parent
+      setState(() => _confirmedRemoteUrl = newUrl);
+    } else if (_confirmedRemoteUrl != null &&
+        newUrl != null &&
+        newUrl.isNotEmpty &&
+        newUrl != oldWidget.currentPhotoUrl) {
+      // Le parent a reçu une vraie nouvelle URL (après refresh API) → on l'adopte
+      setState(() {
+        _confirmedRemoteUrl = newUrl;
+        _localFile = null; // L'URL réseau est désormais à jour, plus besoin du fichier local
+        _cacheKey++;
+      });
+    }
+    // Si newUrl est null ou identique à l'ancienne → on ne touche à rien :
+    // notre état local (_localFile ou _confirmedRemoteUrl) prime.
+  }
+
+  /// URL absolue à utiliser pour l'affichage réseau.
   String? get _effectiveNetworkUrl {
-    final raw = _remoteUrl ?? widget.currentPhotoUrl;
+    final raw = _confirmedRemoteUrl ?? widget.currentPhotoUrl;
     if (raw == null || raw.trim().isEmpty) return null;
     if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
     return 'https://api.do-bok.com$raw';
@@ -87,15 +112,13 @@ class _PhotoPickerWidgetState extends State<PhotoPickerWidget> {
         imageQuality: 85,
       );
     } catch (e) {
-      if (mounted) {
-        _showSnack('Erreur accès photo : $e', isError: true);
-      }
+      if (mounted) _showSnack('Erreur accès photo : $e', isError: true);
       return;
     }
 
     if (image == null) return;
 
-    // ✅ FIX : afficher le fichier local immédiatement, avant l'upload
+    // Affichage immédiat du fichier local
     setState(() {
       _localFile = File(image!.path);
       _uploading = true;
@@ -118,21 +141,27 @@ class _PhotoPickerWidgetState extends State<PhotoPickerWidget> {
 
       if (mounted) {
         setState(() {
-          if (url != null) {
-            _remoteUrl = url;
-            // Force le rechargement du cache réseau
+          if (url != null && url.isNotEmpty) {
+            // ✅ On fixe l'URL confirmée AVANT d'appeler onUploaded.
+            // Ainsi, quand le parent invalide Riverpod et reconstruit ce widget,
+            // didUpdateWidget ne viendra pas écraser notre état local.
+            _confirmedRemoteUrl = url;
+            _localFile = null; // URL confirmée → on peut lâcher le fichier local
             _cacheKey++;
           }
-          // On garde _localFile affiché si l'API ne retourne pas d'URL
+          // Si l'API ne retourne pas d'URL, _localFile reste affiché
           _uploading = false;
         });
+
         _showSnack('Photo mise à jour !');
+
+        // onUploaded appelé APRÈS avoir fixé notre état — le rebuild parent
+        // ne peut plus effacer notre photo.
         widget.onUploaded?.call();
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          // Annuler l'affichage local si l'upload échoue
           _localFile = null;
           _uploading = false;
         });
@@ -158,7 +187,6 @@ class _PhotoPickerWidgetState extends State<PhotoPickerWidget> {
       onTap: _uploading ? null : _pick,
       child: Stack(
         children: [
-          // ── Avatar principal ──────────────────────────────────────────
           CircleAvatar(
             radius: r,
             backgroundColor: AppTheme.primary.withValues(alpha: 0.1),
@@ -171,7 +199,6 @@ class _PhotoPickerWidgetState extends State<PhotoPickerWidget> {
             ),
           ),
 
-          // ── Overlay de chargement ─────────────────────────────────────
           if (_uploading)
             Positioned.fill(
               child: Container(
@@ -188,7 +215,6 @@ class _PhotoPickerWidgetState extends State<PhotoPickerWidget> {
               ),
             ),
 
-          // ── Bouton caméra ─────────────────────────────────────────────
           Positioned(
             bottom: 0,
             right: 0,
@@ -211,7 +237,7 @@ class _PhotoPickerWidgetState extends State<PhotoPickerWidget> {
   }
 
   Widget _buildAvatarContent(String? networkUrl, double r) {
-    // 1. Priorité : fichier local sélectionné (réponse immédiate)
+    // 1. Fichier local en priorité (aperçu immédiat)
     if (_localFile != null) {
       return Image.file(
         _localFile!,
@@ -220,10 +246,10 @@ class _PhotoPickerWidgetState extends State<PhotoPickerWidget> {
       );
     }
 
-    // 2. URL distante disponible → CachedNetworkImage avec clé de cache
+    // 2. URL réseau confirmée ou fournie par le parent
     if (networkUrl != null) {
       return CachedNetworkImage(
-        key: ValueKey('$networkUrl-$_cacheKey'),
+        key: ValueKey('photo-$networkUrl-$_cacheKey'),
         imageUrl: networkUrl,
         fit: BoxFit.cover,
         placeholder: (_, __) => Container(
@@ -243,7 +269,7 @@ class _PhotoPickerWidgetState extends State<PhotoPickerWidget> {
       );
     }
 
-    // 3. Aucune image → placeholder
+    // 3. Placeholder
     return _placeholder(r);
   }
 
