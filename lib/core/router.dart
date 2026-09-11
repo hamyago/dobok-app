@@ -10,7 +10,6 @@ import '../features/profile/profile_page.dart';
 import '../features/notifications/notifications_page.dart';
 import '../features/paiements/paiements_page.dart';
 import 'providers/auth_provider.dart';
-import '../features/notifications/envoyer_notification_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final notifier = RouterNotifier(ref);
@@ -35,7 +34,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/profile', builder: (c, s) => const ProfilePage()),
       GoRoute(path: '/notifications', builder: (c, s) => const NotificationsPage()),
       GoRoute(path: '/paiements', builder: (c, s) => const PaiementsPage()),
-      GoRoute(path: '/notifier', builder: (c, s) => const EnvoyerNotificationPage()),
     ],
   );
 });
