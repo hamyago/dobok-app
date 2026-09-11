@@ -24,6 +24,14 @@ class _EditClubPageState extends ConsumerState<EditClubPage> {
   bool _loading = false;
   bool _gpsLoading = false;
 
+  // Parse lat/lng — accepte String OU num
+  static double? _parseDouble(dynamic val) {
+    if (val == null) return null;
+    if (val is num) return val.toDouble();
+    if (val is String && val.isNotEmpty) return double.tryParse(val);
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -31,8 +39,8 @@ class _EditClubPageState extends ConsumerState<EditClubPage> {
     _adresse = TextEditingController(text: widget.club['adresse'] as String? ?? '');
     _tel     = TextEditingController(text: widget.club['telephone'] as String? ?? '');
     _email   = TextEditingController(text: widget.club['email'] as String? ?? '');
-    _lat     = (widget.club['latitude'] as num?)?.toDouble();
-    _lng     = (widget.club['longitude'] as num?)?.toDouble();
+    _lat     = _parseDouble(widget.club['latitude']);
+    _lng     = _parseDouble(widget.club['longitude']);
   }
 
   @override
@@ -147,11 +155,15 @@ class _EditClubPageState extends ConsumerState<EditClubPage> {
                 const SizedBox(height: 12),
                 AppTextField(controller: _adresse, label: 'Adresse'),
                 const SizedBox(height: 12),
-                AppTextField(controller: _tel,   label: 'Téléphone',
-                  uppercase: false, keyboardType: TextInputType.phone),
+                AppTextField(controller: _tel,
+                  label: 'Téléphone',
+                  uppercase: false,
+                  keyboardType: TextInputType.phone),
                 const SizedBox(height: 12),
-                AppTextField(controller: _email, label: 'Email',
-                  uppercase: false, keyboardType: TextInputType.emailAddress),
+                AppTextField(controller: _email,
+                  label: 'Email',
+                  uppercase: false,
+                  keyboardType: TextInputType.emailAddress),
               ],
             ),
           ),
@@ -184,7 +196,9 @@ class _EditClubPageState extends ConsumerState<EditClubPage> {
                       Text(
                         '${_lat!.toStringAsFixed(5)}, ${_lng!.toStringAsFixed(5)}',
                         style: const TextStyle(
-                          color: AppTheme.success, fontSize: 13, fontWeight: FontWeight.w500),
+                          color: AppTheme.success,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500),
                       ),
                     ]),
                   ),
