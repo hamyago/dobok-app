@@ -29,6 +29,13 @@ class _PhotoPickerWidgetState extends State<PhotoPickerWidget> {
   bool _uploading = false;
   String? _localPhotoUrl;
 
+  String? get _effectiveUrl {
+    final url = _localPhotoUrl ?? widget.currentPhotoUrl;
+    if (url == null || url.isEmpty) return null;
+    if (url.startsWith('http')) return url;
+    return 'https://api.do-bok.com$url';
+  }
+
   Future<void> _pick() async {
     final picker = ImagePicker();
     final source = await showDialog<ImageSource>(
@@ -51,20 +58,43 @@ class _PhotoPickerWidgetState extends State<PhotoPickerWidget> {
     );
     if (source == null) return;
 
-    final image = await picker.pickImage(
-      source: source, maxWidth: 800, maxHeight: 800, imageQuality: 85);
+    XFile? image;
+    try {
+      image = await picker.pickImage(
+        source: source,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Erreur accès photo : $e'),
+          backgroundColor: AppTheme.error,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+      return;
+    }
+
     if (image == null) return;
 
     setState(() => _uploading = true);
     try {
       final formData = FormData.fromMap({
-        'photo': await MultipartFile.fromFile(image.path,
-          filename: image.name),
+        'photo': await MultipartFile.fromFile(
+          image.path,
+          filename: image.name,
+        ),
       });
       final response = await ApiClient().dio.post(
-        widget.uploadEndpoint, data: formData);
+        widget.uploadEndpoint,
+        data: formData,
+      );
       final url = response.data['photo_url'] as String?;
-      if (url != null) setState(() => _localPhotoUrl = url);
+      if (url != null && mounted) {
+        setState(() => _localPhotoUrl = url);
+      }
       widget.onUploaded?.call();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -75,8 +105,8 @@ class _PhotoPickerWidgetState extends State<PhotoPickerWidget> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Erreur lors du téléchargement'),
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Erreur upload : $e'),
           backgroundColor: AppTheme.error,
           behavior: SnackBarBehavior.floating,
         ));
@@ -87,8 +117,7 @@ class _PhotoPickerWidgetState extends State<PhotoPickerWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final photoUrl = _localPhotoUrl ?? widget.currentPhotoUrl;
-    final fullUrl = photoUrl != null ? 'https://api.do-bok.com$photoUrl' : null;
+    final photoUrl = _effectiveUrl;
 
     return GestureDetector(
       onTap: _pick,
@@ -97,26 +126,49 @@ class _PhotoPickerWidgetState extends State<PhotoPickerWidget> {
           CircleAvatar(
             radius: widget.radius,
             backgroundColor: AppTheme.primary.withValues(alpha: 0.1),
-            backgroundImage: fullUrl != null ? NetworkImage(fullUrl) : null,
-            child: fullUrl == null
-                ? (widget.placeholder ?? Icon(Icons.person,
-                    size: widget.radius, color: AppTheme.primary))
+            // Image seulement si URL valide
+            backgroundImage: photoUrl != null
+                ? NetworkImage(photoUrl)
+                : null,
+            onBackgroundImageError: photoUrl != null
+                ? (_, __) {} // Ignore silencieusement les erreurs réseau
+                : null,
+            child: photoUrl == null
+                ? (widget.placeholder ??
+                    Icon(Icons.person,
+                      size: widget.radius,
+                      color: AppTheme.primary))
                 : null,
           ),
           if (_uploading)
-            Positioned.fill(child: Container(
-              decoration: BoxDecoration(
-                color: Colors.black38, shape: BoxShape.circle),
-              child: const Center(child: CircularProgressIndicator(
-                color: Colors.white, strokeWidth: 2)),
-            )),
+            Positioned.fill(
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.black38,
+                  shape: BoxShape.circle,
+                ),
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                ),
+              ),
+            ),
           Positioned(
-            bottom: 0, right: 0,
+            bottom: 0,
+            right: 0,
             child: Container(
               padding: const EdgeInsets.all(4),
               decoration: const BoxDecoration(
-                color: AppTheme.primary, shape: BoxShape.circle),
-              child: const Icon(Icons.camera_alt, color: Colors.white, size: 14),
+                color: AppTheme.primary,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.camera_alt,
+                color: Colors.white,
+                size: 14,
+              ),
             ),
           ),
         ],
