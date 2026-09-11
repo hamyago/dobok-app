@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -14,8 +15,44 @@ final nonLuesCountProvider = FutureProvider<int>((ref) async {
   return response.data['count'] as int? ?? 0;
 });
 
-class NotificationsPage extends ConsumerWidget {
+class NotificationsPage extends ConsumerStatefulWidget {
   const NotificationsPage({super.key});
+
+  @override
+  ConsumerState<NotificationsPage> createState() => _NotificationsPageState();
+}
+
+class _NotificationsPageState extends ConsumerState<NotificationsPage>
+    with WidgetsBindingObserver {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Rafraîchissement automatique toutes les 30 secondes
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) {
+        ref.invalidate(notificationsProvider);
+        ref.invalidate(nonLuesCountProvider);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.invalidate(notificationsProvider);
+      ref.invalidate(nonLuesCountProvider);
+    }
+  }
 
   IconData _icone(String type) {
     switch (type) {
@@ -51,7 +88,7 @@ class NotificationsPage extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final state = ref.watch(notificationsProvider);
 
     return Scaffold(
@@ -104,7 +141,10 @@ class NotificationsPage extends ConsumerWidget {
           }
 
           return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(notificationsProvider),
+            onRefresh: () async {
+              ref.invalidate(notificationsProvider);
+              ref.invalidate(nonLuesCountProvider);
+            },
             child: ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: notifications.length,
@@ -119,13 +159,11 @@ class NotificationsPage extends ConsumerWidget {
 
                 return GestureDetector(
                   onTap: () async {
-                    // Marquer comme lue
                     if (!lue) {
                       await ApiClient().dio.post('/notifications/${n['id']}/lue');
                       ref.invalidate(notificationsProvider);
                       ref.invalidate(nonLuesCountProvider);
                     }
-                    // Ouvrir le détail
                     if (context.mounted) {
                       await showModalBottomSheet(
                         context: context,
@@ -183,7 +221,6 @@ class NotificationsPage extends ConsumerWidget {
                                   ),
                               ]),
                               const SizedBox(height: 4),
-                              // Résumé — 2 lignes max, tap pour voir tout
                               Text(n['corps'] ?? '',
                                 style: const TextStyle(color: Colors.grey, fontSize: 13),
                                 maxLines: 2,
@@ -216,7 +253,6 @@ class NotificationsPage extends ConsumerWidget {
   }
 }
 
-// ─── Bottom sheet détail ──────────────────────────────────────────────────────
 class _NotificationDetail extends StatelessWidget {
   final Map<String, dynamic> notification;
   final Color color;
@@ -243,7 +279,6 @@ class _NotificationDetail extends StatelessWidget {
         ),
         child: Column(
           children: [
-            // Handle
             Container(
               margin: const EdgeInsets.only(top: 12),
               width: 40, height: 4,
@@ -256,7 +291,6 @@ class _NotificationDetail extends StatelessWidget {
                 controller: controller,
                 padding: const EdgeInsets.all(24),
                 children: [
-                  // Icône + type
                   Row(children: [
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -282,12 +316,10 @@ class _NotificationDetail extends StatelessWidget {
                   const SizedBox(height: 20),
                   const Divider(),
                   const SizedBox(height: 16),
-                  // Message complet
                   Text(notification['corps'] ?? '',
                     style: const TextStyle(
                       fontSize: 15, height: 1.6, color: Colors.black87)),
                   const SizedBox(height: 32),
-                  // Fermer
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context),
                     child: const Text('FERMER'),

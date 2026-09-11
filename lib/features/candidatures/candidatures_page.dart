@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -39,11 +40,44 @@ String _monthLabel(String key) {
   return '${mois[m]} ${parts[0]}';
 }
 
-class CandidaturesPage extends ConsumerWidget {
+class CandidaturesPage extends ConsumerStatefulWidget {
   const CandidaturesPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CandidaturesPage> createState() => _CandidaturesPageState();
+}
+
+class _CandidaturesPageState extends ConsumerState<CandidaturesPage>
+    with WidgetsBindingObserver {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Rafraîchissement automatique toutes les 30 secondes
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) ref.invalidate(candidaturesProvider);
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  // Rafraîchissement quand l'app revient au premier plan
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.invalidate(candidaturesProvider);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(candidaturesProvider);
     final user = ref.watch(authProvider).valueOrNull;
     final clubId = user?.clubId;
@@ -54,6 +88,13 @@ class CandidaturesPage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Candidatures'),
         leading: BackButton(onPressed: () => context.pop()),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => ref.invalidate(candidaturesProvider),
+            tooltip: 'Actualiser',
+          ),
+        ],
       ),
       body: state.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -69,88 +110,107 @@ class CandidaturesPage extends ConsumerWidget {
         )),
         data: (all) {
           final grouped = _groupByMonth(all, clubId);
-          if (grouped.isEmpty) return const Center(child: Text('Aucune candidature'));
-          final keys = grouped.keys.toList();
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: keys.length,
-            itemBuilder: (_, i) {
-              final key = keys[i];
-              final list = grouped[key]!;
-              final admis = list.where((c) => c['resultat'] == 'admis').length;
-              final refuses = list.where((c) => c['resultat'] == 'refuse').length;
-              final absents = list.where((c) => c['statut_presence'] == 'absent').length;
-              final enAttente = list.where((c) => c['resultat'] == null && c['statut_presence'] != 'absent').length;
-              final lieu = (list.first['session']?['lieu'] as String?) ?? '—';
-              final date = (list.first['session']?['date'] as String?)?.substring(0, 10) ?? '—';
-              final sessionOuverte = (list.first['session']?['statut'] as String?) == 'ouverte';
-
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () => Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => _SessionDetailPage(
-                      moisLabel: _monthLabel(key),
-                      date: date,
-                      lieu: lieu,
-                      candidatures: list,
-                      isPresident: isPresident,
-                      sessionOuverte: sessionOuverte,
-                      onRetrait: () => ref.invalidate(candidaturesProvider),
-                    ),
-                  )),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(children: [
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primary,
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                        ),
-                        child: Row(children: [
-                          const Icon(Icons.calendar_month, color: Colors.white, size: 18),
-                          const SizedBox(width: 8),
-                          Expanded(child: Text(_monthLabel(key),
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                          Text('$date • $lieu',
-                            style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                        ]),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _StatBadge('Admis', admis, AppTheme.success),
-                            _StatBadge('Refusés', refuses, AppTheme.error),
-                            _StatBadge('Absents', absents, Colors.grey),
-                            if (enAttente > 0) _StatBadge('En attente', enAttente, AppTheme.warning),
-                            Text('${list.length} total',
-                              style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                          ],
-                        ),
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.only(bottom: 8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text('Voir le détail', style: TextStyle(color: AppTheme.primary, fontSize: 12)),
-                            Icon(Icons.chevron_right, color: AppTheme.primary, size: 16),
-                          ],
-                        ),
-                      ),
-                    ]),
-                  ),
+          if (grouped.isEmpty) return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.sports_martial_arts, size: 64, color: Colors.grey.shade300),
+                const SizedBox(height: 16),
+                const Text('Aucune candidature',
+                  style: TextStyle(color: Colors.grey, fontSize: 16)),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () => ref.invalidate(candidaturesProvider),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Actualiser'),
                 ),
-              );
-            },
+              ],
+            ),
+          );
+          final keys = grouped.keys.toList();
+          return RefreshIndicator(
+            onRefresh: () async => ref.invalidate(candidaturesProvider),
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: keys.length,
+              itemBuilder: (_, i) {
+                final key = keys[i];
+                final list = grouped[key]!;
+                final admis = list.where((c) => c['resultat'] == 'admis').length;
+                final refuses = list.where((c) => c['resultat'] == 'refuse').length;
+                final absents = list.where((c) => c['statut_presence'] == 'absent').length;
+                final enAttente = list.where((c) => c['resultat'] == null && c['statut_presence'] != 'absent').length;
+                final lieu = (list.first['session']?['lieu'] as String?) ?? '—';
+                final date = (list.first['session']?['date'] as String?)?.substring(0, 10) ?? '—';
+                final sessionOuverte = (list.first['session']?['statut'] as String?) == 'ouverte';
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => _SessionDetailPage(
+                        moisLabel: _monthLabel(key),
+                        date: date,
+                        lieu: lieu,
+                        candidatures: list,
+                        isPresident: isPresident,
+                        sessionOuverte: sessionOuverte,
+                        onRetrait: () => ref.invalidate(candidaturesProvider),
+                      ),
+                    )),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(children: [
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary,
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                          ),
+                          child: Row(children: [
+                            const Icon(Icons.calendar_month, color: Colors.white, size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(_monthLabel(key),
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                            Text('$date • $lieu',
+                              style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                          ]),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _StatBadge('Admis', admis, AppTheme.success),
+                              _StatBadge('Refusés', refuses, AppTheme.error),
+                              _StatBadge('Absents', absents, Colors.grey),
+                              if (enAttente > 0) _StatBadge('En attente', enAttente, AppTheme.warning),
+                              Text('${list.length} total',
+                                style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text('Voir le détail', style: TextStyle(color: AppTheme.primary, fontSize: 12)),
+                              Icon(Icons.chevron_right, color: AppTheme.primary, size: 16),
+                            ],
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ),
+                );
+              },
+            ),
           );
         },
       ),
@@ -240,7 +300,6 @@ class _SessionDetailPageState extends State<_SessionDetailPage>
     }
   }
 
-  // Statut paiement
   Widget _paiementBadge(String statut) {
     final isConfirme = statut == 'paye' || statut == 'confirme';
     return Container(
