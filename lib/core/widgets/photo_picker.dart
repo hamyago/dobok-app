@@ -137,6 +137,13 @@ class _PhotoPickerWidgetState extends State<PhotoPickerWidget> {
         data: formData,
       );
 
+      // ⚠️ DEBUG TEMPORAIRE — copie ce log et envoie-le
+      debugPrint('=== UPLOAD RESPONSE ===');
+      debugPrint('Status: ${response.statusCode}');
+      debugPrint('Data: ${response.data}');
+      debugPrint('Endpoint: ${widget.uploadEndpoint}');
+      debugPrint('=======================');
+
       final url = response.data['photo_url'] as String?;
 
       if (mounted) {
