@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -39,8 +40,8 @@ class _AthletesPageState extends ConsumerState<AthletesPage> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          await Navigator.push(context, MaterialPageRoute(
-            builder: (_) => const AthleteFormPage()));
+          await Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const AthleteFormPage()));
           ref.invalidate(athletesProvider);
         },
         backgroundColor: AppTheme.primary,
@@ -73,24 +74,30 @@ class _AthletesPageState extends ConsumerState<AthletesPage> {
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
             ),
           ),
           Expanded(
             child: state.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.error_outline, size: 48, color: AppTheme.error),
-                  const SizedBox(height: 12),
-                  const Text('Impossible de charger les athlètes'),
-                  TextButton(
-                    onPressed: () => ref.invalidate(athletesProvider),
-                    child: const Text('Réessayer')),
-                ],
-              )),
+              loading: () =>
+                  const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_outline,
+                        size: 48, color: AppTheme.error),
+                    const SizedBox(height: 12),
+                    const Text('Impossible de charger les athlètes'),
+                    TextButton(
+                      onPressed: () => ref.invalidate(athletesProvider),
+                      child: const Text('Réessayer'),
+                    ),
+                  ],
+                ),
+              ),
               data: (athletes) {
                 // Filtrer par club
                 var mine = clubId != null
@@ -98,22 +105,28 @@ class _AthletesPageState extends ConsumerState<AthletesPage> {
                     : athletes;
                 // Filtrer par recherche
                 if (_query.isNotEmpty) {
-                  mine = mine.where((a) =>
-                    a.fullName.toLowerCase().contains(_query) ||
-                    (a.telephone?.contains(_query) ?? false) ||
-                    (a.numeroLicence?.toLowerCase().contains(_query) ?? false) ||
-                    a.ceinture.toLowerCase().contains(_query)
-                  ).toList();
+                  mine = mine
+                      .where((a) =>
+                          a.fullName.toLowerCase().contains(_query) ||
+                          (a.telephone?.contains(_query) ?? false) ||
+                          (a.numeroLicence
+                                  ?.toLowerCase()
+                                  .contains(_query) ??
+                              false) ||
+                          a.ceinture.toLowerCase().contains(_query))
+                      .toList();
                 }
                 // Tri alphabétique
                 mine.sort((a, b) => a.nom.compareTo(b.nom));
 
                 if (mine.isEmpty) {
-                  return Center(child: Text(
-                    _query.isNotEmpty
-                        ? 'Aucun résultat pour "$_query"'
-                        : 'Aucun athlète enregistré',
-                  ));
+                  return Center(
+                    child: Text(
+                      _query.isNotEmpty
+                          ? 'Aucun résultat pour "$_query"'
+                          : 'Aucun athlète enregistré',
+                    ),
+                  );
                 }
                 return ListView.separated(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
@@ -122,8 +135,11 @@ class _AthletesPageState extends ConsumerState<AthletesPage> {
                   itemBuilder: (_, i) => _AthleteCard(
                     athlete: mine[i],
                     onTap: () async {
-                      await Navigator.push(context, MaterialPageRoute(
-                        builder: (_) => AthleteDetailPage(athlete: mine[i])));
+                      await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) =>
+                                  AthleteDetailPage(athlete: mine[i])));
                       ref.invalidate(athletesProvider);
                     },
                   ),
@@ -142,52 +158,94 @@ class _AthleteCard extends StatelessWidget {
   final VoidCallback onTap;
   const _AthleteCard({required this.athlete, required this.onTap});
 
+  /// Construit une URL absolue depuis une URL relative ou absolue.
+  String? _absoluteUrl(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+    return 'https://api.do-bok.com$raw';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final photoUrl = _absoluteUrl(athlete.photoUrl);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(12)),
+            color: Colors.white, borderRadius: BorderRadius.circular(12)),
         child: Row(children: [
-          athlete.photoUrl != null
-              ? CircleAvatar(
-                  backgroundImage: NetworkImage(
-                    'https://api.do-bok.com${athlete.photoUrl}'),
-                  radius: 22,
-                )
-              : CircleAvatar(
-                  backgroundColor: AppTheme.primary.withValues(alpha: 0.1),
-                  radius: 22,
-                  child: Text(athlete.initiale,
-                    style: const TextStyle(
-                      color: AppTheme.primary, fontWeight: FontWeight.bold)),
-                ),
+          // ✅ FIX : utilisation de CachedNetworkImage avec URL absolue
+          ClipOval(
+            child: SizedBox(
+              width: 44,
+              height: 44,
+              child: photoUrl != null
+                  ? CachedNetworkImage(
+                      imageUrl: photoUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(
+                        color: AppTheme.primary.withValues(alpha: 0.1),
+                        child: Center(
+                          child: Text(
+                            athlete.initiale,
+                            style: const TextStyle(
+                              color: AppTheme.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      errorWidget: (_, __, ___) => _fallbackAvatar(),
+                    )
+                  : _fallbackAvatar(),
+            ),
+          ),
           const SizedBox(width: 12),
-          Expanded(child: Column(
+          Expanded(
+              child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(athlete.fullName,
-                style: const TextStyle(fontWeight: FontWeight.w600)),
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
               if (athlete.telephone != null)
                 Text(athlete.telephone!,
-                  style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                    style:
+                        const TextStyle(color: Colors.grey, fontSize: 12)),
             ],
           )),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: AppTheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(athlete.ceinture.toUpperCase(),
-              style: const TextStyle(fontSize: 10, color: AppTheme.primary,
-                fontWeight: FontWeight.bold)),
+                style: const TextStyle(
+                    fontSize: 10,
+                    color: AppTheme.primary,
+                    fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 4),
           const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
         ]),
+      ),
+    );
+  }
+
+  Widget _fallbackAvatar() {
+    return Container(
+      color: AppTheme.primary.withValues(alpha: 0.1),
+      child: Center(
+        child: Text(
+          athlete.initiale,
+          style: const TextStyle(
+            color: AppTheme.primary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }

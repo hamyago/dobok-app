@@ -31,10 +31,13 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   bool _loadingPassword = false;
   bool _initialized = false;
 
-  final _ancienMdp  = TextEditingController();
+  // ✅ FIX : clé incrémentale pour forcer le refresh du PhotoPickerWidget
+  int _photoKey = 0;
+
+  final _ancienMdp = TextEditingController();
   final _nouveauMdp = TextEditingController();
   final _confirmMdp = TextEditingController();
-  bool _obscureAncien  = true;
+  bool _obscureAncien = true;
   bool _obscureNouveau = true;
   bool _obscureConfirm = true;
 
@@ -42,25 +45,30 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   void initState() {
     super.initState();
     final user = ref.read(authProvider).valueOrNull;
-    _nom   = TextEditingController(text: user?.nom ?? '');
+    _nom = TextEditingController(text: user?.nom ?? '');
     _prenom = TextEditingController(text: user?.prenom ?? '');
-    _tel   = TextEditingController(text: user?.telephone ?? '');
+    _tel = TextEditingController(text: user?.telephone ?? '');
     _email = TextEditingController();
   }
 
   void _initFromProfile(Map<String, dynamic> profile) {
     if (_initialized) return;
     _initialized = true;
-    _nom.text    = profile['nom'] as String? ?? '';
+    _nom.text = profile['nom'] as String? ?? '';
     _prenom.text = profile['prenom'] as String? ?? '';
-    _tel.text    = profile['telephone'] as String? ?? '';
-    _email.text  = profile['email'] as String? ?? '';
+    _tel.text = profile['telephone'] as String? ?? '';
+    _email.text = profile['email'] as String? ?? '';
   }
 
   @override
   void dispose() {
-    _nom.dispose(); _prenom.dispose(); _tel.dispose(); _email.dispose();
-    _ancienMdp.dispose(); _nouveauMdp.dispose(); _confirmMdp.dispose();
+    _nom.dispose();
+    _prenom.dispose();
+    _tel.dispose();
+    _email.dispose();
+    _ancienMdp.dispose();
+    _nouveauMdp.dispose();
+    _confirmMdp.dispose();
     super.dispose();
   }
 
@@ -68,25 +76,28 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final user = ref.read(authProvider).valueOrNull;
     setState(() => _loadingProfile = true);
     try {
-      final endpoint = user?.role == 'maitre' ? '/maitre/profile' : '/club/profile';
+      final endpoint =
+          user?.role == 'maitre' ? '/maitre/profile' : '/club/profile';
       await ApiClient().dio.put(endpoint, data: {
-        'nom':    _nom.text.trim(),
+        'nom': _nom.text.trim(),
         'prenom': _prenom.text.trim(),
-        if (_tel.text.isNotEmpty)   'telephone': _tel.text.trim(),
-        if (_email.text.isNotEmpty) 'email':     _email.text.trim(),
+        if (_tel.text.isNotEmpty) 'telephone': _tel.text.trim(),
+        if (_email.text.isNotEmpty) 'email': _email.text.trim(),
       });
       ref.invalidate(profileProvider);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Profil mis à jour !'),
-        backgroundColor: AppTheme.success,
-        behavior: SnackBarBehavior.floating,
-      ));
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Profil mis à jour !'),
+          backgroundColor: AppTheme.success,
+          behavior: SnackBarBehavior.floating,
+        ));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur : $e'),
-        backgroundColor: AppTheme.error,
-        behavior: SnackBarBehavior.floating,
-      ));
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Erreur : $e'),
+          backgroundColor: AppTheme.error,
+          behavior: SnackBarBehavior.floating,
+        ));
     }
     if (mounted) setState(() => _loadingProfile = false);
   }
@@ -115,33 +126,38 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           ? '/maitre/change-password'
           : '/club/change-password';
       await ApiClient().dio.post(endpoint, data: {
-        'ancien_mot_de_passe':  _ancienMdp.text,
+        'ancien_mot_de_passe': _ancienMdp.text,
         'nouveau_mot_de_passe': _nouveauMdp.text,
       });
-      _ancienMdp.clear(); _nouveauMdp.clear(); _confirmMdp.clear();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Mot de passe modifié !'),
-        backgroundColor: AppTheme.success,
-        behavior: SnackBarBehavior.floating,
-      ));
+      _ancienMdp.clear();
+      _nouveauMdp.clear();
+      _confirmMdp.clear();
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Mot de passe modifié !'),
+          backgroundColor: AppTheme.success,
+          behavior: SnackBarBehavior.floating,
+        ));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(e.toString().contains('422')
-            ? 'Ancien mot de passe incorrect'
-            : 'Erreur'),
-        backgroundColor: AppTheme.error,
-        behavior: SnackBarBehavior.floating,
-      ));
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(e.toString().contains('422')
+              ? 'Ancien mot de passe incorrect'
+              : 'Erreur'),
+          backgroundColor: AppTheme.error,
+          behavior: SnackBarBehavior.floating,
+        ));
     }
     if (mounted) setState(() => _loadingPassword = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final user       = ref.watch(authProvider).valueOrNull;
+    final user = ref.watch(authProvider).valueOrNull;
     final isPresident = user?.role == 'president';
     final profileState = ref.watch(profileProvider);
-    final photoEndpoint = isPresident ? '/club/photo' : '/maitre/photo';
+    final photoEndpoint =
+        isPresident ? '/club/photo' : '/maitre/photo';
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -151,74 +167,102 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       ),
       body: profileState.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, size: 48, color: AppTheme.error),
-            const SizedBox(height: 12),
-            const Text('Impossible de charger le profil'),
-            TextButton(
-              onPressed: () => ref.invalidate(profileProvider),
-              child: const Text('Réessayer'),
-            ),
-          ],
-        )),
+        error: (e, _) => Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline,
+                  size: 48, color: AppTheme.error),
+              const SizedBox(height: 12),
+              const Text('Impossible de charger le profil'),
+              TextButton(
+                onPressed: () => ref.invalidate(profileProvider),
+                child: const Text('Réessayer'),
+              ),
+            ],
+          ),
+        ),
         data: (profile) {
-          // Initialiser les champs avec les vraies données
           _initFromProfile(profile);
 
-          // Récupérer la vraie photo_url
           final photoUrl = profile['photo_url'] as String?;
-          final nomComplet = '${profile['nom'] ?? ''} ${profile['prenom'] ?? ''}'.trim();
+          final nomComplet =
+              '${profile['nom'] ?? ''} ${profile['prenom'] ?? ''}'
+                  .trim();
 
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
               // Avatar avec vraie photo
-              Center(child: Column(children: [
-                PhotoPickerWidget(
-                  currentPhotoUrl: photoUrl,
-                  uploadEndpoint: photoEndpoint,
-                  radius: 48,
-                  placeholder: Text(
-                    nomComplet.isNotEmpty ? nomComplet[0].toUpperCase() : '?',
-                    style: const TextStyle(
-                      fontSize: 36,
-                      color: AppTheme.primary,
-                      fontWeight: FontWeight.bold,
+              Center(
+                child: Column(children: [
+                  // ✅ FIX : ValueKey + _photoKey forcent la reconstruction
+                  // après upload, même si photo_url reste identique
+                  PhotoPickerWidget(
+                    key: ValueKey('profile-photo-$_photoKey'),
+                    currentPhotoUrl: photoUrl,
+                    uploadEndpoint: photoEndpoint,
+                    radius: 48,
+                    placeholder: Text(
+                      nomComplet.isNotEmpty
+                          ? nomComplet[0].toUpperCase()
+                          : '?',
+                      style: const TextStyle(
+                        fontSize: 36,
+                        color: AppTheme.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
+                    onUploaded: () {
+                      // Invalide le provider ET incrémente la clé
+                      ref.invalidate(profileProvider);
+                      setState(() {
+                        _initialized = false; // Permet la réinitialisation
+                        _photoKey++;
+                      });
+                    },
                   ),
-                  onUploaded: () => ref.invalidate(profileProvider),
-                ),
-                const SizedBox(height: 8),
-                Text(nomComplet,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                Text(isPresident ? 'Président du club' : 'Maître de salle',
-                  style: const TextStyle(color: Colors.grey)),
-              ])),
+                  const SizedBox(height: 8),
+                  Text(nomComplet,
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text(
+                      isPresident
+                          ? 'Président du club'
+                          : 'Maître de salle',
+                      style: const TextStyle(color: Colors.grey)),
+                ]),
+              ),
               const SizedBox(height: 24),
 
               // Infos personnelles
               _Card('INFORMATIONS PERSONNELLES', [
-                AppTextField(controller: _nom,    label: 'Nom'),
+                AppTextField(controller: _nom, label: 'Nom'),
                 const SizedBox(height: 12),
                 AppTextField(controller: _prenom, label: 'Prénom'),
                 const SizedBox(height: 12),
-                AppTextField(controller: _tel,
+                AppTextField(
+                  controller: _tel,
                   label: 'Téléphone',
                   uppercase: false,
-                  keyboardType: TextInputType.phone),
+                  keyboardType: TextInputType.phone,
+                ),
                 const SizedBox(height: 12),
-                AppTextField(controller: _email,
+                AppTextField(
+                  controller: _email,
                   label: 'Email',
                   uppercase: false,
-                  keyboardType: TextInputType.emailAddress),
+                  keyboardType: TextInputType.emailAddress,
+                ),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: _loadingProfile ? null : _saveProfile,
                   child: _loadingProfile
-                      ? const SizedBox(height: 18, width: 18,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2))
                       : const Text('ENREGISTRER'),
                 ),
               ]),
@@ -232,8 +276,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   uppercase: false,
                   obscureText: _obscureAncien,
                   suffixIcon: IconButton(
-                    icon: Icon(_obscureAncien ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () => setState(() => _obscureAncien = !_obscureAncien),
+                    icon: Icon(_obscureAncien
+                        ? Icons.visibility_off
+                        : Icons.visibility),
+                    onPressed: () => setState(
+                        () => _obscureAncien = !_obscureAncien),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -243,8 +290,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   uppercase: false,
                   obscureText: _obscureNouveau,
                   suffixIcon: IconButton(
-                    icon: Icon(_obscureNouveau ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () => setState(() => _obscureNouveau = !_obscureNouveau),
+                    icon: Icon(_obscureNouveau
+                        ? Icons.visibility_off
+                        : Icons.visibility),
+                    onPressed: () => setState(
+                        () => _obscureNouveau = !_obscureNouveau),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -254,17 +304,24 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   uppercase: false,
                   obscureText: _obscureConfirm,
                   suffixIcon: IconButton(
-                    icon: Icon(_obscureConfirm ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                    icon: Icon(_obscureConfirm
+                        ? Icons.visibility_off
+                        : Icons.visibility),
+                    onPressed: () => setState(
+                        () => _obscureConfirm = !_obscureConfirm),
                   ),
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: _loadingPassword ? null : _changePassword,
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.secondary),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.secondary),
                   child: _loadingPassword
-                      ? const SizedBox(height: 18, width: 18,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2))
                       : const Text('CHANGER LE MOT DE PASSE'),
                 ),
               ]),
@@ -278,7 +335,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 },
                 icon: const Icon(Icons.logout, color: AppTheme.error),
                 label: const Text('SE DÉCONNECTER',
-                  style: TextStyle(color: AppTheme.error)),
+                    style: TextStyle(color: AppTheme.error)),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: AppTheme.error),
                   minimumSize: const Size(double.infinity, 52),
@@ -300,16 +357,21 @@ class _Card extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(title, style: const TextStyle(
-        fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primary)),
-      const SizedBox(height: 16),
-      ...children,
-    ]),
-  );
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: AppTheme.primary)),
+              const SizedBox(height: 16),
+              ...children,
+            ]),
+      );
 }
