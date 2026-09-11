@@ -22,6 +22,7 @@ class NotificationsPage extends ConsumerWidget {
       case 'session_ouverte': return Icons.event_available;
       case 'resultat': return Icons.emoji_events;
       case 'rappel': return Icons.alarm;
+      case 'urgent': return Icons.warning_amber;
       case 'candidature': return Icons.sports_martial_arts;
       default: return Icons.notifications;
     }
@@ -32,6 +33,7 @@ class NotificationsPage extends ConsumerWidget {
       case 'session_ouverte': return AppTheme.primary;
       case 'resultat': return AppTheme.success;
       case 'rappel': return AppTheme.warning;
+      case 'urgent': return AppTheme.error;
       case 'candidature': return AppTheme.secondary;
       default: return Colors.purple;
     }
@@ -55,7 +57,7 @@ class NotificationsPage extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Notifications'),
+        title: const Text('NOTIFICATIONS'),
         leading: BackButton(onPressed: () => context.pop()),
         actions: [
           TextButton(
@@ -88,8 +90,7 @@ class NotificationsPage extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.notifications_none, size: 64,
-                    color: Colors.grey.shade300),
+                  Icon(Icons.notifications_none, size: 64, color: Colors.grey.shade300),
                   const SizedBox(height: 16),
                   const Text('Aucune notification',
                     style: TextStyle(color: Colors.grey, fontSize: 16)),
@@ -118,20 +119,37 @@ class NotificationsPage extends ConsumerWidget {
 
                 return GestureDetector(
                   onTap: () async {
+                    // Marquer comme lue
                     if (!lue) {
                       await ApiClient().dio.post('/notifications/${n['id']}/lue');
                       ref.invalidate(notificationsProvider);
                       ref.invalidate(nonLuesCountProvider);
                     }
+                    // Ouvrir le détail
+                    if (context.mounted) {
+                      await showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) => _NotificationDetail(
+                          notification: n,
+                          color: color,
+                          icon: icon,
+                          date: date,
+                        ),
+                      );
+                    }
                   },
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: lue ? Colors.white : AppTheme.primary.withValues(alpha: 0.04),
+                      color: lue
+                          ? Colors.white
+                          : AppTheme.primary.withValues(alpha: 0.04),
                       borderRadius: BorderRadius.circular(12),
-                      border: lue ? null : Border(
-                        left: BorderSide(color: color, width: 3),
-                      ),
+                      border: lue
+                          ? null
+                          : Border(left: BorderSide(color: color, width: 3)),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -165,16 +183,26 @@ class NotificationsPage extends ConsumerWidget {
                                   ),
                               ]),
                               const SizedBox(height: 4),
+                              // Résumé — 2 lignes max, tap pour voir tout
                               Text(n['corps'] ?? '',
                                 style: const TextStyle(color: Colors.grey, fontSize: 13),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis),
                               const SizedBox(height: 6),
-                              Text(date,
-                                style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                              Row(children: [
+                                Text(date,
+                                  style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                                const SizedBox(width: 8),
+                                Text('Appuyer pour lire',
+                                  style: TextStyle(
+                                    color: color, fontSize: 11,
+                                    fontWeight: FontWeight.w500)),
+                              ]),
                             ],
                           ),
                         ),
+                        const SizedBox(width: 4),
+                        Icon(Icons.chevron_right, color: Colors.grey.shade300, size: 18),
                       ],
                     ),
                   ),
@@ -183,6 +211,92 @@ class NotificationsPage extends ConsumerWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+// ─── Bottom sheet détail ──────────────────────────────────────────────────────
+class _NotificationDetail extends StatelessWidget {
+  final Map<String, dynamic> notification;
+  final Color color;
+  final IconData icon;
+  final String date;
+
+  const _NotificationDetail({
+    required this.notification,
+    required this.color,
+    required this.icon,
+    required this.date,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.92,
+      builder: (_, controller) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            // Handle
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2)),
+            ),
+            Expanded(
+              child: ListView(
+                controller: controller,
+                padding: const EdgeInsets.all(24),
+                children: [
+                  // Icône + type
+                  Row(children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, color: color, size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(notification['titre'] ?? '',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 17)),
+                        const SizedBox(height: 2),
+                        Text(date,
+                          style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                      ],
+                    )),
+                  ]),
+                  const SizedBox(height: 20),
+                  const Divider(),
+                  const SizedBox(height: 16),
+                  // Message complet
+                  Text(notification['corps'] ?? '',
+                    style: const TextStyle(
+                      fontSize: 15, height: 1.6, color: Colors.black87)),
+                  const SizedBox(height: 32),
+                  // Fermer
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('FERMER'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
