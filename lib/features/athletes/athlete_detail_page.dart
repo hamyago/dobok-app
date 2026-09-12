@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/photo_picker.dart';
 import 'athlete_form_page.dart';
 import '../candidatures/soumettre_examen_page.dart';
+import 'transfert_page.dart';
 
 class AthleteDetailPage extends ConsumerStatefulWidget {
   final AthleteModel athlete;
@@ -318,6 +319,18 @@ class _AthleteDetailPageState extends ConsumerState<AthleteDetailPage> {
                 MaterialPageRoute(
                     builder: (_) =>
                         SoumettreExamenPage(athlete: _athlete))),
+
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => TransfertPage(athlete: _athlete))),
+                icon: const Icon(Icons.swap_horiz),
+                label: const Text("TRANSFERT DE CLUB"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                ),
             icon: const Icon(Icons.school),
             label: const Text('SOUMETTRE À UN EXAMEN'),
             style: ElevatedButton.styleFrom(
