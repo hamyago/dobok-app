@@ -23,6 +23,10 @@ class DashboardPage extends ConsumerWidget {
         {'icon': Icons.sports_martial_arts, 'label': 'Candidatures', 'color': AppTheme.secondary, 'route': '/candidatures'},
         {'icon': Icons.business, 'label': 'Mon Club', 'color': Colors.blue, 'route': '/club'},
         {'icon': Icons.receipt_long, 'label': 'Paiements', 'color': Colors.orange, 'route': '/paiements'},
+        // Pour le maître :
+        {'icon': Icons.sports_martial_arts, 'label': 'Séances', 'color': Colors.teal, 'route': '/seances'},
+        // Pour le président :
+        {'icon': Icons.payments, 'label': 'Mensualités', 'color': Colors.purple, 'route': '/mensualites'},
       ],
       {'icon': Icons.person, 'label': 'Mon Profil', 'color': Colors.teal, 'route': '/profile'},
     ];
