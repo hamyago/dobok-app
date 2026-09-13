@@ -26,10 +26,10 @@ class _AthleteFormPageState extends ConsumerState<AthleteFormPage> {
     text: widget.athlete?.nationalite ?? 'IVOIRIENNE');
   late final _passeport = TextEditingController(text: widget.athlete?.passeportNumero);
   String _sexe = 'masculin';
-  String _ceinture = 'blanche';
+  String _ceinture = '9keup';
 
   final List<String> _ceintures = [
-    'blanche','9keup','8keup','7keup','6keup','5keup',
+    '9keup','8keup','7keup','6keup','5keup',
     '4keup','3keup','2keup','1keup','1er dan','2e dan',
     '3e dan','4e dan','5e dan',
   ];
