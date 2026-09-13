@@ -17,17 +17,24 @@ class SeancesPage extends ConsumerStatefulWidget {
 }
 
 class _SeancesPageState extends ConsumerState<SeancesPage> {
-  final _dateCtrl     = TextEditingController(text: DateTime.now().toIso8601String().substring(0, 10));
-  final _heureCtrl    = TextEditingController(text: '09:00');
-  final _lieuCtrl     = TextEditingController();
-  final _notesCtrl    = TextEditingController();
-  int   _duree        = 90;
-  bool  _creating     = false;
+  final _dateCtrl  = TextEditingController(text: DateTime.now().toIso8601String().substring(0, 10));
+  final _lieuCtrl  = TextEditingController();
+  final _notesCtrl = TextEditingController();
+  int      _duree    = 90;
+  bool     _creating = false;
+
+  // FIX : heure gérée par TimeOfDay, plus de saisie libre
+  TimeOfDay _heure = const TimeOfDay(hour: 9, minute: 0);
+
+  /// Formate TimeOfDay en "HH:mm" (ex: 09:00) — format attendu par Laravel
+  String get _heureFormatee =>
+      '${_heure.hour.toString().padLeft(2, '0')}:${_heure.minute.toString().padLeft(2, '0')}';
 
   @override
   void dispose() {
-    _dateCtrl.dispose(); _heureCtrl.dispose();
-    _lieuCtrl.dispose(); _notesCtrl.dispose();
+    _dateCtrl.dispose();
+    _lieuCtrl.dispose();
+    _notesCtrl.dispose();
     super.dispose();
   }
 
@@ -36,7 +43,7 @@ class _SeancesPageState extends ConsumerState<SeancesPage> {
     try {
       await ApiClient().dio.post('/seances', data: {
         'date':          _dateCtrl.text,
-        'heure_debut':   _heureCtrl.text,
+        'heure_debut':   _heureFormatee,   // toujours "HH:mm" — valide pour Laravel
         'duree_minutes': _duree,
         if (_lieuCtrl.text.isNotEmpty) 'lieu': _lieuCtrl.text.trim(),
         if (_notesCtrl.text.isNotEmpty) 'notes': _notesCtrl.text.trim(),
@@ -65,74 +72,115 @@ class _SeancesPageState extends ConsumerState<SeancesPage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.75,
-        maxChildSize: 0.95,
-        builder: (_, ctrl) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: ListView(
-            controller: ctrl,
-            padding: const EdgeInsets.all(20),
-            children: [
-              Center(child: Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
-              )),
-              const SizedBox(height: 16),
-              const Text('NOUVELLE SÉANCE', style: TextStyle(
-                fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primary)),
-              const SizedBox(height: 20),
-              TextFormField(
-                controller: _dateCtrl,
-                readOnly: true,
-                decoration: const InputDecoration(labelText: 'Date', prefixIcon: Icon(Icons.calendar_today)),
-                onTap: () async {
-                  final d = await showDatePicker(
-                    context: context,
-                    initialDate: DateTime.now(),
-                    firstDate: DateTime(2024),
-                    lastDate: DateTime(2030),
-                  );
-                  if (d != null) _dateCtrl.text = d.toIso8601String().substring(0, 10);
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _heureCtrl,
-                decoration: const InputDecoration(labelText: 'Heure de début (HH:MM)', prefixIcon: Icon(Icons.access_time)),
-                keyboardType: TextInputType.datetime,
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<int>(
-                value: _duree,
-                decoration: const InputDecoration(labelText: 'Durée'),
-                items: [60, 90, 120].map((d) => DropdownMenuItem(
-                  value: d, child: Text('$d minutes'))).toList(),
-                onChanged: (v) => setState(() => _duree = v!),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _lieuCtrl,
-                decoration: const InputDecoration(labelText: 'Lieu (optionnel)', prefixIcon: Icon(Icons.location_on)),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _notesCtrl,
-                maxLines: 3,
-                decoration: const InputDecoration(labelText: 'Notes (optionnel)', prefixIcon: Icon(Icons.notes), alignLabelWithHint: true),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _creating ? null : _creerSeance,
-                child: _creating
-                    ? const SizedBox(height: 20, width: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text('CRÉER LA SÉANCE'),
-              ),
-            ],
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setModalState) => DraggableScrollableSheet(
+          initialChildSize: 0.75,
+          maxChildSize: 0.95,
+          builder: (_, ctrl) => Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: ListView(
+              controller: ctrl,
+              padding: const EdgeInsets.all(20),
+              children: [
+                Center(child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                )),
+                const SizedBox(height: 16),
+                const Text('NOUVELLE SÉANCE', style: TextStyle(
+                  fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primary)),
+                const SizedBox(height: 20),
+
+                // ── Date ──────────────────────────────────────────────────
+                TextFormField(
+                  controller: _dateCtrl,
+                  readOnly: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Date', prefixIcon: Icon(Icons.calendar_today)),
+                  onTap: () async {
+                    final d = await showDatePicker(
+                      context: ctx,
+                      initialDate: DateTime.now(),
+                      firstDate: DateTime(2024),
+                      lastDate: DateTime(2030),
+                    );
+                    if (d != null) _dateCtrl.text = d.toIso8601String().substring(0, 10);
+                  },
+                ),
+                const SizedBox(height: 12),
+
+                // ── Heure — TimePicker natif (plus de saisie libre) ───────
+                GestureDetector(
+                  onTap: () async {
+                    final picked = await showTimePicker(
+                      context: ctx,
+                      initialTime: _heure,
+                      builder: (context, child) => MediaQuery(
+                        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+                        child: child!,
+                      ),
+                    );
+                    if (picked != null) {
+                      setModalState(() => _heure = picked);
+                      setState(() {});  // met aussi à jour _heureFormatee
+                    }
+                  },
+                  child: AbsorbPointer(
+                    child: TextFormField(
+                      readOnly: true,
+                      decoration: InputDecoration(
+                        labelText: 'Heure de début',
+                        prefixIcon: const Icon(Icons.access_time),
+                        suffixIcon: const Icon(Icons.edit, size: 16, color: Colors.grey),
+                        hintText: _heureFormatee,
+                      ),
+                      controller: TextEditingController(text: _heureFormatee),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // ── Durée ─────────────────────────────────────────────────
+                DropdownButtonFormField<int>(
+                  value: _duree,
+                  decoration: const InputDecoration(labelText: 'Durée'),
+                  items: [60, 90, 120].map((d) => DropdownMenuItem(
+                    value: d, child: Text('$d minutes'))).toList(),
+                  onChanged: (v) => setState(() => _duree = v!),
+                ),
+                const SizedBox(height: 12),
+
+                // ── Lieu ──────────────────────────────────────────────────
+                TextFormField(
+                  controller: _lieuCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Lieu (optionnel)', prefixIcon: Icon(Icons.location_on)),
+                ),
+                const SizedBox(height: 12),
+
+                // ── Notes ─────────────────────────────────────────────────
+                TextFormField(
+                  controller: _notesCtrl,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Notes (optionnel)',
+                    prefixIcon: Icon(Icons.notes),
+                    alignLabelWithHint: true),
+                ),
+                const SizedBox(height: 24),
+
+                ElevatedButton(
+                  onPressed: _creating ? null : _creerSeance,
+                  child: _creating
+                      ? const SizedBox(height: 20, width: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text('CRÉER LA SÉANCE'),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -163,7 +211,9 @@ class _SeancesPageState extends ConsumerState<SeancesPage> {
             const Icon(Icons.error_outline, size: 48, color: AppTheme.error),
             const SizedBox(height: 12),
             const Text('Impossible de charger les séances'),
-            TextButton(onPressed: () => ref.invalidate(seancesProvider), child: const Text('Réessayer')),
+            TextButton(
+              onPressed: () => ref.invalidate(seancesProvider),
+              child: const Text('Réessayer')),
           ],
         )),
         data: (seances) {
@@ -173,16 +223,16 @@ class _SeancesPageState extends ConsumerState<SeancesPage> {
             itemCount: seances.length,
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (_, i) {
-              final s = seances[i];
-              final date = (s['date'] as String?)?.substring(0, 10) ?? '—';
-              final heure = s['heure_debut'] as String? ?? '—';
-              final duree = s['duree_minutes'] as int? ?? 0;
-              final lieu = s['lieu'] as String? ?? 'Salle principale';
+              final s      = seances[i];
+              final date   = (s['date'] as String?)?.substring(0, 10) ?? '—';
+              final heure  = s['heure_debut'] as String? ?? '—';
+              final duree  = s['duree_minutes'] as int? ?? 0;
+              final lieu   = s['lieu'] as String? ?? 'Salle principale';
               final statut = s['statut'] as String? ?? 'planifiee';
               final maitre = s['maitre'] as Map<String, dynamic>? ?? {};
-              final color = statut == 'terminee' ? AppTheme.success
+              final color  = statut == 'terminee' ? AppTheme.success
                   : statut == 'annulee' ? AppTheme.error : AppTheme.primary;
-              final label = statut == 'terminee' ? 'Terminée'
+              final label  = statut == 'terminee' ? 'Terminée'
                   : statut == 'annulee' ? 'Annulée' : 'Planifiée';
 
               return GestureDetector(
@@ -208,8 +258,10 @@ class _SeancesPageState extends ConsumerState<SeancesPage> {
                     Expanded(child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('$date à $heure', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        Text('$lieu · $duree min', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                        Text('$date à $heure',
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text('$lieu · $duree min',
+                          style: const TextStyle(color: Colors.grey, fontSize: 12)),
                         Text('Maître : ${maitre['nom'] ?? ''} ${maitre['prenom'] ?? ''}',
                           style: const TextStyle(color: Colors.grey, fontSize: 11)),
                       ],
@@ -221,7 +273,8 @@ class _SeancesPageState extends ConsumerState<SeancesPage> {
                           color: color.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
+                        child: Text(label,
+                          style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
                       ),
                       const SizedBox(height: 4),
                       const Icon(Icons.chevron_right, color: Colors.grey, size: 18),
@@ -319,8 +372,7 @@ class _PresencesPageState extends ConsumerState<PresencesPage> {
 
   @override
   Widget build(BuildContext context) {
-    final date = (widget.seance['date'] as String?)?.substring(0, 10) ?? '—';
-    final heure = widget.seance['heure_debut'] as String? ?? '—';
+    final date   = (widget.seance['date'] as String?)?.substring(0, 10) ?? '—';
     final statuts = ['present', 'absent', 'retard', 'excuse'];
     final labels  = ['Présent', 'Absent', 'Retard', 'Excusé'];
 
@@ -335,7 +387,8 @@ class _PresencesPageState extends ConsumerState<PresencesPage> {
             child: _saving
                 ? const SizedBox(height: 18, width: 18,
                     child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : const Text('ENREGISTRER', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                : const Text('ENREGISTRER',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -382,11 +435,11 @@ class _PresencesPageState extends ConsumerState<PresencesPage> {
                   itemCount: _presences.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (_, i) {
-                    final p = _presences[i];
+                    final p       = _presences[i];
                     final athlete = p['athlete'] as Map<String, dynamic>? ?? {};
-                    final nom = '${athlete['nom'] ?? ''} ${athlete['prenom'] ?? ''}'.trim();
-                    final statut = p['statut'] as String? ?? 'absent';
-                    final color = _couleurStatut(statut);
+                    final nom     = '${athlete['nom'] ?? ''} ${athlete['prenom'] ?? ''}'.trim();
+                    final statut  = p['statut'] as String? ?? 'absent';
+                    final color   = _couleurStatut(statut);
 
                     return Container(
                       decoration: BoxDecoration(
@@ -394,30 +447,29 @@ class _PresencesPageState extends ConsumerState<PresencesPage> {
                         borderRadius: BorderRadius.circular(12),
                         border: Border(left: BorderSide(color: color, width: 4)),
                       ),
-                      child: Column(children: [
-                        ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: color.withValues(alpha: 0.1),
-                            child: Icon(_iconeStatut(statut), color: color, size: 20),
-                          ),
-                          title: Text(nom, style: const TextStyle(fontWeight: FontWeight.w600)),
-                          subtitle: Text(athlete['ceinture_actuelle'] as String? ?? '—',
-                            style: const TextStyle(fontSize: 11)),
-                          trailing: DropdownButton<String>(
-                            value: statut,
-                            underline: const SizedBox(),
-                            items: List.generate(statuts.length, (j) => DropdownMenuItem(
-                              value: statuts[j],
-                              child: Text(labels[j], style: TextStyle(
-                                fontSize: 12,
-                                color: _couleurStatut(statuts[j]),
-                                fontWeight: FontWeight.w600,
-                              )),
-                            )),
-                            onChanged: (v) => setState(() => _presences[i]['statut'] = v!),
-                          ),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: color.withValues(alpha: 0.1),
+                          child: Icon(_iconeStatut(statut), color: color, size: 20),
                         ),
-                      ]),
+                        title: Text(nom,
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: Text(athlete['ceinture_actuelle'] as String? ?? '—',
+                          style: const TextStyle(fontSize: 11)),
+                        trailing: DropdownButton<String>(
+                          value: statut,
+                          underline: const SizedBox(),
+                          items: List.generate(statuts.length, (j) => DropdownMenuItem(
+                            value: statuts[j],
+                            child: Text(labels[j], style: TextStyle(
+                              fontSize: 12,
+                              color: _couleurStatut(statuts[j]),
+                              fontWeight: FontWeight.w600,
+                            )),
+                          )),
+                          onChanged: (v) => setState(() => _presences[i]['statut'] = v!),
+                        ),
+                      ),
                     );
                   },
                 ),
